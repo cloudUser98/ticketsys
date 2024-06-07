@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Hello World!</title>
+    <link href="https://unpkg.com/dropzone@6.0.0-beta.1/dist/dropzone.css" rel="stylesheet" type="text/css" />
+
+  </head>
+  <body>
+    <h1>Ticket System</h1>
+    <p>Sistema de tickets</p>
+    <input id="test" type="file">
+    <div id="fileContents"></div>
+    <!-- <form action="/target" class="dropzone" id="my-great-dropzone"></form> -->
+
+    <script type="module" src="/src/renderer.js"></script>
+    <script src="https://unpkg.com/dropzone@6.0.0-beta.1/dist/dropzone-min.js"></script>
+    <!-- <script>
+        Dropzone.options.myGreatDropzone = { // camelized version of the `id`
+            paramName: "file", // The name that will be used to transfer the file
+            maxFilesize: 2, // MB
+            accept: function(file, done) {
+                if (file.name == "justinbieber.jpg") {
+                    done("Naha, you don't.");
+                }
+                else { done(); }
+            }
+        };
+    </script> -->
+  </body>
+</html>
