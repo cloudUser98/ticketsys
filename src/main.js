@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const fs = require("fs");
 const path = require('node:path');
 
@@ -18,21 +18,6 @@ const createWindow = () => {
       preload: path.join(__dirname, 'preload.js'),
     },
   });
-
-  const menu = Menu.buildFromTemplate([
-    {
-        label: app.name,
-        submenu: [
-            {
-                click: () => mainWindow.webContents.send('content', 1),
-                label: 'Increment'
-            }
-        ]
-  }
-
-  ])
-
-  Menu.setApplicationMenu(menu)
 
   // and load the index.html of the app.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
