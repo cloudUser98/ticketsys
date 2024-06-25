@@ -1,0 +1,56 @@
+<div class="relative overflow-x-auto shadow-md">
+    <table id="tickets" class="w-full text-sm text-left rtl:text-right text-gray-500">
+        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+            <tr>
+                <!-- <th scope="col" class="px-6 py-3">
+                    Folio
+                </th> -->
+                <th scope="col" class="px-6 py-3">
+                    Producto
+                </th>
+                <th scope="col" class="px-6 py-3">
+                    Precio
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- <tr class="odd:bg-white even:bg-gray-50 border-b">
+                <th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+                    Apple MacBook Pro 17"
+                </th>
+                <td class="px-6 py-4">
+                    Silver
+                </td>
+            </tr>
+            <tr class="odd:bg-white even:bg-gray-50 border-b">
+                <th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+                    Microsoft Surface Pro
+                </th>
+                <td class="px-6 py-4">
+                    White
+                </td>
+            </tr> -->
+        </tbody>
+        <tfoot>
+            <tr class="font-semibold text-gray-900">
+                <th scope="row" class="px-6 py-3 text-base">Total</th>
+                <td id="total" class="px-6 py-3"></td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<script>
+    console.log(typeof table);
+    console.log(typeof table === 'undefined');
+    var table = document.getElementById("tickets");
+    var total = document.getElementById("total");
+    var body = table.getElementsByTagName("tbody")[0];
+
+    final.forEach(item => {
+        body.insertAdjacentHTML("beforeend", `<tr class="odd:bg-white even:bg-gray-50 border-b"><td class="px-6 py-4"> ${item.name} </td><td class="px-6 py-4"> $${item.price} </td></tr>`);
+    });
+
+    console.log(result);
+    total.innerHTML = "$" + result.maxValue;
+</script>
