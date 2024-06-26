@@ -3,7 +3,6 @@
     <head>
         <meta charset="UTF-8" />
         <title>Sistema de Tickets - DEMO</title>
-        <link href="https://unpkg.com/dropzone@6.0.0-beta.1/dist/dropzone.css" rel="stylesheet" type="text/css" />
 
     </head>
     <body>
@@ -58,42 +57,23 @@
                         
                     </form>
                     <div id="error" class="text-red-500"></div>
-                    <table id="tickets" class="w-full text-sm text-left rtl:text-right text-gray-500">
-                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                    <table id="tickets" class="display " style="width:100%">
+                        <thead>
                             <tr>
-                                <!-- <th scope="col" class="px-6 py-3">
-                                    Folio
-                                </th> -->
-                                <th scope="col" class="px-6 py-3">
+                                <th></th>
+                                <th>
                                     Folio
                                 </th>
-                                <th scope="col" class="px-6 py-3">
+                                <th>
                                     Total
                                 </th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <!-- <tr class="odd:bg-white even:bg-gray-50 border-b">
-                                <th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-                                    Apple MacBook Pro 17"
-                                </th>
-                                <td class="px-6 py-4">
-                                    Silver
-                                </td>
-                            </tr>
-                            <tr class="odd:bg-white even:bg-gray-50 border-b">
-                                <th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-                                    Microsoft Surface Pro
-                                </th>
-                                <td class="px-6 py-4">
-                                    White
-                                </td>
-                            </tr>
-                        </tbody> -->
                         <tfoot>
-                            <tr class="font-semibold text-gray-900">
-                                <th scope="row" class="px-6 py-3 text-base">Total</th>
-                                <td id="total" class="px-6 py-3"></td>
+                            <tr>
+                                <th></th>
+                                <th></th>
+                                <th style="text-align:right">Total:</th>
                             </tr>
                         </tfoot>
                     </table>

@@ -26,11 +26,52 @@
  * ```
  */
 import './index.css';
-import 'htmx.org';
-// import { dialog } from 'electron';
-import { read, writeXLSX, utils } from "xlsx";
+import 'datatables.net-dt/css/dataTables.dataTables.min.css';
 
-console.log('👋 This message is being logged by "renderer.js", included via Vite');
+// import { dialog } from 'electron';
+
+import 'htmx.org';
+import { read, writeXLSX, utils } from "xlsx";
+import DataTable from 'datatables.net-dt';
+
+var dataTable = new DataTable('#tickets', {
+    columns: [
+        {
+            className: 'dt-control',
+            orderable: false,
+            defaultContent: ''
+        },
+        null,
+        null,
+    ],
+    order: [[1, 'desc']],
+    footerCallback: function(row, data, start, end, display) {
+        let api = this.api();
+
+        const total = api
+            .column(2)
+            .data()
+            .reduce((a, b) => a + b, 0);
+
+        api.column(2).footer().innerHTML = 'Total: $' + total;
+    },
+});
+
+dataTable.on('click', 'td.dt-control', function (e) {
+    let tr = e.target.closest('tr');
+    let row = dataTable.row(tr);
+
+    if (row.child.isShown()) {
+        // This row is already open - close it
+        row.child.hide();
+    }
+    else {
+        // Open this row
+        row.child(format(['product 1', 'product 2'])).show();
+    }
+});
+
+// dataTable.column(0).orderable(false);
 
 const fileInput = document.getElementById('test');
 const fileContentsDiv = document.getElementById('fileContents');
@@ -42,6 +83,20 @@ window.tWeight = 0;
 window.tValue = 0;
 
 var value = 0;
+
+
+function format(products) {
+    const childRows = "".concat(products.map(product => `<dd>${product.name}</dd>`));
+
+    console.log("Products formated: ", childRows);
+
+    return (
+        "<dl>" +
+        "<dt>Productos:</dt>" +
+        childRows +
+        "</dl>"
+    );
+}
 
 function enforceMinMax(event) {
     let el = event.target;
@@ -87,36 +142,67 @@ function shuffleArray(array) {
     }
 }
 
-function unboundedKnapsack(capacity, weights, values) {
-    // Scale the capacity to handle float values
-    const scale = 1000; // Scale factor to convert float to int for better precision
-    const intCapacity = Math.floor(capacity * scale);
+function unboundedKnapsackBetter(W, val, wt) {
+    // Stores most dense item
+    let maxDenseIndex = 0
 
-    // Scale the weights accordingly
-    const scaledWeights = weights.map(weight => Math.floor(weight * scale));
-
-    // Initialize arrays for storing maximum values and items selected
-    const dp = Array(intCapacity + 1).fill(0);
-    const itemsSelected = Array.from({ length: intCapacity + 1 }, () => []);
-
-    // Compute the maximum value for each scaled capacity from 0 to intCapacity
-    for (let i = 0; i <= intCapacity; i++) {
-        for (let j = 0; j < scaledWeights.length; j++) {
-            if (scaledWeights[j] <= i) {
-                const newValue = dp[i - scaledWeights[j]] + values[j];
-                if (newValue > dp[i]) {
-                    dp[i] = newValue;
-                    itemsSelected[i] = [...itemsSelected[i - scaledWeights[j]], j];
-                }
-            }
+    // Find the item with highest unit value
+    // (if two items have same unit value then choose the lighter item)
+    for (let i = 1; i < val.length; i++) {
+        if (val[i] / wt[i] > val[maxDenseIndex] / wt[maxDenseIndex]
+            || (val[i] / wt[i] === val[maxDenseIndex] / wt[maxDenseIndex]
+                && wt[i] < wt[maxDenseIndex])) {
+            maxDenseIndex = i;
         }
     }
 
-    // Get the total value and the items selected for the full capacity
-    const maxValue = dp[intCapacity];
-    const selectedItems = itemsSelected[intCapacity];
+    let dp = new Array(W + 1).fill(0);
+    const itemsSelected = Array.from({ length: W + 1 }, () => []);
 
-    return { maxValue, selectedItems };
+    let counter = 0;
+    let breaked = false;
+    for (var i = 0; i <= W; i++) {
+        for (let j = 0; j < wt.length; j++) {
+            if (wt[j] <= i) {
+                const newValue = dp[i - wt[j]] + val[j];
+
+                if (newValue > dp[i]) {
+                    dp[i] = newValue;
+
+                    itemsSelected[i] = [...itemsSelected[i - wt[j]], j];
+                }
+            }
+        }
+        if (i - wt[maxDenseIndex] >= 0 && dp[i] - dp[i - wt[maxDenseIndex]] === val[maxDenseIndex]) {
+            counter += 1;
+            if (counter >= wt[maxDenseIndex]) {
+                breaked = true;
+                break;
+            }
+        } else {
+            counter = 0;
+        }
+    }
+
+    const selectedItems = itemsSelected[W];
+
+    if (!breaked) {
+        return {
+            maxValue: dp[W],
+            selectedItems
+        };
+    } else {
+        let start = i - wt[maxDenseIndex] + 1;
+        let times = Math.floor((W - start) / wt[maxDenseIndex]);
+        let index = (W - start) % wt[maxDenseIndex] + start;
+
+        let selectedItems = new Array(times).fill(maxDenseIndex).concat(itemsSelected[index]);
+
+        return {
+            maxValue: (times * val[maxDenseIndex] + dp[index]),
+            selectedItems
+        };
+    }
 }
 
 function readFile(file) {
@@ -205,15 +291,25 @@ function fillTable(data, final=0) {
     var body = table.getElementsByTagName("tbody")[0];
 
     data.forEach(item => {
-        let productsHTML = item.products.map(product => `<tr><td>${product.name} $${product.price}</td></tr>`);
-        productsHTML.join("");
+        dataTable.row
+            .add([
+                '',
+                item.folio,
+                item.total,
+            ])
+            // .child("<dl><dt><dd>TEST</dd></dt></dl>")
+            .draw(false);
+        // item.products.map(product => {
 
-        body.insertAdjacentHTML("beforeend", `
-            <tr class="odd:bg-white even:bg-gray-50 border-b">
-                <td class="px-6 py-4"> ${item.folio} </td>
-                <td class="px-6 py-4"> $${item.total} </td>
-            </tr>${productsHTML}`
-        );
+        // let productsHTML = item.products.map(product => `<tr><td>${product.name} $${product.price}</td></tr>`);
+        // productsHTML.join("");
+
+        // body.insertAdjacentHTML("beforeend", `
+        //     <tr class="odd:bg-white even:bg-gray-50 border-b">
+        //         <td class="px-6 py-4"> ${item.folio} </td>
+        //         <td class="px-6 py-4"> $${item.total} </td>
+        //     </tr>${productsHTML}`
+        // );
         totalValue += item.total;
     });
 }
@@ -221,11 +317,11 @@ function fillTable(data, final=0) {
 function calc(value, tValue, tWeight, tickets) {
     console.log("data: ", value, tValue, tWeight);
 
-    const result = unboundedKnapsack(value, tWeight, tValue);
+    const result = unboundedKnapsackBetter(parseFloat(value), tValue, tWeight);
+
+    console.log("Result: ", result);
 
     let totalValue = 0;
-
-    console.log(result);
 
     let final = result.selectedItems.map(idx => {
         console.log("Price: ", idx);
@@ -302,7 +398,14 @@ function insertCredit() {
         if (totalValue + item.total > total) return;
 
         console.log("QUE TA PASANDO ", item);
-        body.insertAdjacentHTML("beforeend", `<tr class="odd:bg-white even:bg-gray-50 border-b"><td class="px-6 py-4"> ${myFolio} </td><td class="px-6 py-4"> $${item.total} </td></tr>`);
+        dataTable.row
+            .add([
+                '',
+                myFolio,
+                item.total,
+            ])
+            .draw(false);
+        // body.insertAdjacentHTML("beforeend", `<tr class="odd:bg-white even:bg-gray-50 border-b"><td class="px-6 py-4"> ${myFolio} </td><td class="px-6 py-4"> $${item.total} </td></tr>`);
         myFolio += 1;
         total -= item.total;
         totalValue += item.total;
@@ -311,9 +414,9 @@ function insertCredit() {
 }
 
 function setTableTotal() {
-    var total = document.getElementById("total");
+    // var total = document.getElementById("total");
 
-    total.innerHTML = "$" + totalValue;
+    // total.innerHTML = "$" + totalValue;
 }
 
 fileInput.addEventListener('change', async (event) => {
@@ -352,6 +455,8 @@ document.getElementById("volver").addEventListener('click', function(event) {
 const form = document.getElementById('form');
 form.addEventListener("submit", (event) => {
     event.preventDefault();
+
+    dataTable.clear().draw();
 
     var table = document.getElementById("tickets");
     var body = table.getElementsByTagName("tbody")[0];
