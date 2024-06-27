@@ -35,25 +35,25 @@ import { read, writeXLSX, utils } from "xlsx";
 import DataTable from 'datatables.net-dt';
 
 var dataTable = new DataTable('#tickets', {
-    columns: [
-        {
-            className: 'dt-control',
-            orderable: false,
-            defaultContent: ''
-        },
-        null,
-        null,
-    ],
-    order: [[1, 'desc']],
+    // columns: [
+    //     {
+    //         className: 'dt-control',
+    //         orderable: false,
+    //         defaultContent: ''
+    //     },
+    //     null,
+    //     null,
+    // ],
+    // order: [[1, 'desc']],
     footerCallback: function(row, data, start, end, display) {
         let api = this.api();
 
         const total = api
-            .column(2)
+            .column(1)
             .data()
             .reduce((a, b) => a + b, 0);
 
-        api.column(2).footer().innerHTML = 'Total: $' + total;
+        api.column(1).footer().innerHTML = 'Total: $' + total;
     },
 });
 
@@ -257,10 +257,10 @@ function readFile(file) {
         deposit += parseFloat(ticket[DEPOSIT].replace(/[^\d.]/g, ''));
     };
 
-    document.getElementById("total-debit").innerHTML = "Efectivo: $" + cash;
-    document.getElementById("total-credit").innerHTML = "Tarjeta: $" + card;
-    document.getElementById("total-t").innerHTML = "Transferencias: $" + deposit;
-    document.getElementById("total-f").innerHTML = "Total: $" + totalGeneral;
+    document.getElementById("total-debit").innerHTML = "$" + cash;
+    document.getElementById("total-credit").innerHTML = "$" + card;
+    document.getElementById("total-t").innerHTML = "$" + deposit;
+    document.getElementById("total-f").innerHTML = "$" + totalGeneral;
 
     console.log("Totals: ", cash, card,  deposit);
 
@@ -277,13 +277,6 @@ function readFile(file) {
 
     tValue = test;
     tWeight = test;
-
-    document.getElementById("content").hidden = true;
-
-    document.getElementById("monto").min = 0;
-    document.getElementById("monto").max = totalGeneral;
-
-    document.getElementById("results").hidden = false;
 }
 
 function fillTable(data, final=0) {
@@ -293,11 +286,9 @@ function fillTable(data, final=0) {
     data.forEach(item => {
         dataTable.row
             .add([
-                '',
                 item.folio,
                 item.total,
             ])
-            // .child("<dl><dt><dd>TEST</dd></dt></dl>")
             .draw(false);
         // item.products.map(product => {
 
@@ -400,7 +391,6 @@ function insertCredit() {
         console.log("QUE TA PASANDO ", item);
         dataTable.row
             .add([
-                '',
                 myFolio,
                 item.total,
             ])
@@ -424,10 +414,28 @@ fileInput.addEventListener('change', async (event) => {
     const ui8a = new Uint8Array(ab);
 
     readFile(ui8a);
+
+    document.getElementById("start").hidden = false;
+});
+
+document.getElementById("start").addEventListener('click', function(event) {
+    document.getElementById("start").hidden = true;
+    document.getElementById("content").hidden = true;
+
+    document.getElementById("monto").min = 0;
+    document.getElementById("monto").max = totalGeneral;
+
+    document.getElementById("results").hidden = false;
 });
 
 document.getElementById("volver").addEventListener('click', function(event) {
     fileInput.value = "";
+
+    document.getElementById("error").innerHTML = "";
+
+    document.getElementById("monto").value = "";
+    document.getElementById("inicial").value = "";
+    document.getElementById("final").value = "";
 
     window.value = 0;
     window.tWeight = 0;
