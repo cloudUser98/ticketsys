@@ -51,7 +51,9 @@ var dataTable = new DataTable('#tickets', {
         const total = api
             .column(1)
             .data()
-            .reduce((a, b) => a + b, 0);
+            .reduce((a, b) => {
+                return a + parseFloat(b.replace("$", ""))
+            }, 0);
 
         api.column(1).footer().innerHTML = 'Total: $' + total;
     },
@@ -140,6 +142,48 @@ function shuffleArray(array) {
         const j = Math.floor(Math.random() * (i + 1));
         [array[i], array[j]] = [array[j], array[i]];
     }
+}
+
+function addOneMore(val, tickets, t) {
+    const values = [...val].sort((a, b) => a - b);
+
+    console.log(values)
+
+    values.every((value, index) => {
+        console.log(t, value, parseFloat(total));
+        if (t + value >= parseFloat(total) && parseFloat(total) - t > value / 2) {
+            tickets[tickets.length - 1].total += value;
+
+            console.log("Se agrego un extra de: ", value);
+
+            return false
+        }
+    })
+};
+
+function getValues(t, val, min) {
+    const numberOfValues = val.length;
+
+    let maxValue = 0,
+        selectedItems = [];
+
+    const lowest = val.indexOf(Math.min(...val));
+
+    if (numberOfValues === 0 || t === 0) {
+        return {maxValue, selectedItems}
+    }
+
+    while (maxValue < t) {
+        if (selectedItems.length < min) {
+            selectedItems.push(lowest);
+
+            maxValue += val[lowest];
+        } else {
+            return { maxValue, selectedItems }
+        }
+    }
+
+    return {maxValue, selectedItems}
 }
 
 function unboundedKnapsackBetter(W, val, wt) {
@@ -287,7 +331,7 @@ function fillTable(data, final=0) {
         dataTable.row
             .add([
                 item.folio,
-                item.total,
+                "$" + item.total,
             ])
             .draw(false);
         // item.products.map(product => {
@@ -308,7 +352,15 @@ function fillTable(data, final=0) {
 function calc(value, tValue, tWeight, tickets) {
     console.log("data: ", value, tValue, tWeight);
 
-    const result = unboundedKnapsackBetter(parseFloat(value), tValue, tWeight);
+    let result = getValues(parseFloat(value), tValue, totalTickets);
+
+    if (parseFloat(value) - result.maxValue > 0) {
+        console.log("Calling knapsack with: ", parseFloat(value) - result.maxValue, tValue, tWeight);
+
+        const knapsackResult = unboundedKnapsackBetter(parseFloat(value) - result.maxValue, tValue, tWeight);
+
+        result = { maxValue: result.maxValue + knapsackResult.maxValue, selectedItems: result.selectedItems.concat(knapsackResult.selectedItems)};
+    }
 
     console.log("Result: ", result);
 
@@ -328,25 +380,32 @@ function calc(value, tValue, tWeight, tickets) {
 
     console.log("El resultado es de ", final.length, " productos y ", totalTickets, "tickets");
     let productByTicket = Math.floor(final.length / totalTickets);
+    const productPerTicket = productByTicket
+        ? productByTicket
+        : 1;
     
     let someticket = totalTickets;
-    if (final.length % totalTickets > 0) {
+    if (final.length % totalTickets > 0 && productByTicket !== 0) {
         someticket--;
     }
     console.log("Tiene que generar ", someticket, " tickets");
+    console.log("Con ", productPerTicket, " productos por ticket");
+
     let productsPerTicket = [];
     let finalTicket = [];
     let totalM = 0;
     let total = 0;
     let counter = 0;
+    let products = final.length;
     final.forEach(product => {
         if (someticket === 0) return;
 
         total += product.price;
         productsPerTicket.push(product)
+        products--;
         counter++;
 
-        if (counter === productByTicket) {
+        if (counter === productPerTicket) {
             console.log("Se creo un ticket con: ", counter, " productos");
             finalTicket.push({
                 folio: myFolio,
@@ -367,8 +426,8 @@ function calc(value, tValue, tWeight, tickets) {
     });
     console.log("Se crearon tickets: ", final);
 
-    if (final.length % totalTickets > 0 && totalTickets !== 0) {
-        let lastProducts = final.slice(Math.max((totalTickets - 1) * productByTicket, 1))
+    if (products && final.length % totalTickets > 0 && totalTickets !== 0) {
+        let lastProducts = final.slice(Math.max((totalTickets - 1) * productPerTicket, 1))
         finalTicket.push({folio: myFolio, total: totalValue - totalM, products: lastProducts});
     };
     console.log("Se agrego un utlimo ticket con: ", (totalValue - totalM));
@@ -376,31 +435,56 @@ function calc(value, tValue, tWeight, tickets) {
     console.log("Tickets generados: ", finalTicket);
 
     if (result.maxValue) {
+        console.log("Agregar one more: ", result.maxValue, parseFloat(window.total))
+        if (result.maxValue < parseFloat(window.total)) {
+            addOneMore(tValue, finalTicket, result.maxValue);
+        }
+
         fillTable(finalTicket, totalValue);
     }
 };
 
-function insertCredit() {
+function insertCredit(monto) {
+    console.log("CREDIT: ", creditTickets);
+
     var table = document.getElementById("tickets");
     var body = table.getElementsByTagName("tbody")[0];
 
-    creditTickets.forEach(item => {
-        if (totalTickets <= 0) return;
-        if (totalValue + item.total > total) return;
+    let usedCreditTickets = 0;
+    creditTickets.every(item => {
+        console.log(totalTickets);
+        if (totalTickets <= 0) return false;
+        console.log(totalValue, item.total, monto);
+        if (totalValue + item.total > monto) return false;
 
         console.log("QUE TA PASANDO ", item);
-        dataTable.row
+        const rows = dataTable.row
             .add([
                 myFolio,
-                item.total,
+                "$" + item.total,
             ])
-            .draw(false);
+            .draw(false)
+            .rows().nodes().toArray();
+
+        usedCreditTickets++;
+
+        console.log("credit rows: ", rows);
+        rows[rows.length - 1].style.backgroundColor = "rgba(14, 116, 144, 0.4)";
+        // rows[rows.length - 1].style.color = "white";
         // body.insertAdjacentHTML("beforeend", `<tr class="odd:bg-white even:bg-gray-50 border-b"><td class="px-6 py-4"> ${myFolio} </td><td class="px-6 py-4"> $${item.total} </td></tr>`);
         myFolio += 1;
         total -= item.total;
         totalValue += item.total;
         totalTickets--;
+
+        return true;
     });
+
+    if (usedCreditTickets < creditTickets.length) {
+        return false
+    }
+
+    return true
 }
 
 function setTableTotal() {
@@ -490,9 +574,9 @@ form.addEventListener("submit", (event) => {
     };
     window.total = monto;
 
-    insertCredit();
+    const result = insertCredit(parseFloat(monto));
 
-    if (totalTickets > 0) {
+    if (result && totalTickets > 0) {
         console.log("CALCULANDO: ", total, totalTickets);
         calc(total, tValue, tWeight, totalTickets);
     }
