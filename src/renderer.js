@@ -34,28 +34,31 @@ import 'htmx.org';
 import { read, writeXLSX, utils } from "xlsx";
 import DataTable from 'datatables.net-dt';
 
+window.finalTicketList = [];
+
 var dataTable = new DataTable('#tickets', {
-    // columns: [
-    //     {
-    //         className: 'dt-control',
-    //         orderable: false,
-    //         defaultContent: ''
-    //     },
-    //     null,
-    //     null,
-    // ],
-    // order: [[1, 'desc']],
+    columns: [
+        {
+            className: 'dt-control',
+            orderable: false,
+            defaultContent: ''
+        },
+        null,
+        null,
+    ],
+    order: [[1, 'asc']],
+    paging: false,
     footerCallback: function(row, data, start, end, display) {
         let api = this.api();
 
         const total = api
-            .column(1)
+            .column(2)
             .data()
             .reduce((a, b) => {
                 return a + parseFloat(b.replace("$", ""))
             }, 0);
 
-        api.column(1).footer().innerHTML = 'Total: $' + total;
+        api.column(2).footer().innerHTML = 'Total: $' + total;
     },
 });
 
@@ -69,7 +72,11 @@ dataTable.on('click', 'td.dt-control', function (e) {
     }
     else {
         // Open this row
-        row.child(format(['product 1', 'product 2'])).show();
+        const rowId = row.data()[1];
+        
+        console.log(row.data(), rowId, finalTicketList.find(value => value.folio === rowId));
+
+        row.child(format(finalTicketList.find(value => value.folio === rowId).products)).show();
     }
 });
 
@@ -88,7 +95,7 @@ var value = 0;
 
 
 function format(products) {
-    const childRows = "".concat(products.map(product => `<dd>${product.name}</dd>`));
+    const childRows = "".concat(products.map(product => `<dd>${product.name} $${product.price}</dd>`).join(""));
 
     console.log("Products formated: ", childRows);
 
@@ -186,66 +193,39 @@ function getValues(t, val, min) {
     return {maxValue, selectedItems}
 }
 
-function unboundedKnapsackBetter(W, val, wt) {
-    // Stores most dense item
-    let maxDenseIndex = 0
+function unboundedKnapsackBetter(W, wt, val, n) {
+    // Making and initializing dp array
+    var dp = Array(W + 1).fill(0);
+    
+    // To store the items included in the knapsack
+    var keep = Array(n + 1).fill().map(() => Array(W + 1).fill(false));
 
-    // Find the item with highest unit value
-    // (if two items have same unit value then choose the lighter item)
-    for (let i = 1; i < val.length; i++) {
-        if (val[i] / wt[i] > val[maxDenseIndex] / wt[maxDenseIndex]
-            || (val[i] / wt[i] === val[maxDenseIndex] / wt[maxDenseIndex]
-                && wt[i] < wt[maxDenseIndex])) {
-            maxDenseIndex = i;
-        }
-    }
-
-    let dp = new Array(W + 1).fill(0);
-    const itemsSelected = Array.from({ length: W + 1 }, () => []);
-
-    let counter = 0;
-    let breaked = false;
-    for (var i = 0; i <= W; i++) {
-        for (let j = 0; j < wt.length; j++) {
-            if (wt[j] <= i) {
-                const newValue = dp[i - wt[j]] + val[j];
-
-                if (newValue > dp[i]) {
-                    dp[i] = newValue;
-
-                    itemsSelected[i] = [...itemsSelected[i - wt[j]], j];
+    for (let i = 1; i < n + 1; i++) {
+        for (let w = W; w >= 0; w--) {
+            if (wt[i - 1] <= w) {
+                if (dp[w] < dp[w - wt[i - 1]] + val[i - 1]) {
+                    dp[w] = dp[w - wt[i - 1]] + val[i - 1];
+                    keep[i][w] = true;
                 }
             }
         }
-        if (i - wt[maxDenseIndex] >= 0 && dp[i] - dp[i - wt[maxDenseIndex]] === val[maxDenseIndex]) {
-            counter += 1;
-            if (counter >= wt[maxDenseIndex]) {
-                breaked = true;
-                break;
-            }
-        } else {
-            counter = 0;
+    }
+    
+    // Now, backtrack to find the items to include
+    let w = W;
+    let selectedItems = [];
+    
+    for (let i = n; i > 0 && w > 0; i--) {
+        if (keep[i][w]) {
+            selectedItems.push(i - 1); // item indices are 0-based
+            w -= wt[i - 1];
         }
     }
 
-    const selectedItems = itemsSelected[W];
-
-    if (!breaked) {
-        return {
-            maxValue: dp[W],
-            selectedItems
-        };
-    } else {
-        let start = i - wt[maxDenseIndex] + 1;
-        let times = Math.floor((W - start) / wt[maxDenseIndex]);
-        let index = (W - start) % wt[maxDenseIndex] + start;
-
-        let selectedItems = new Array(times).fill(maxDenseIndex).concat(itemsSelected[index]);
-
-        return {
-            maxValue: (times * val[maxDenseIndex] + dp[index]),
-            selectedItems
-        };
+    // Return the maximum value and the selected items
+    return {
+        maxValue: dp[W],
+        selectedItems: selectedItems
     }
 }
 
@@ -275,17 +255,44 @@ function readFile(file) {
 
     console.log("Tickets: ", tickets);
 
-    window.creditTickets = tickets.filter(ticket => parseFloat(ticket[37].replace(/[^\d.]/g, ''))).map(ticket => {
-        let creditValue = ticket[37];
-        creditValue = parseFloat(creditValue.replace(/[^\d.]/g, ''));
+    window.creditTickets = json.reduce((filtered, ticket, idx) => {
+        const credit = parseFloat(ticket[37].replace(/[^\d.]/g, ''));
 
-        if (creditValue > 0) {
-            return {
-                "folio": ticket[5],
-                "total": creditValue,
+        if (credit) {
+            console.log("TICKET DE CREDITO CON ID ", idx);
+            console.log("Tiene credito", credit);
+            let products = []
+            for (let i = idx + 1; i < json.length; i++) {
+                if (json[i][0] === "Ticket") {
+                    console.log(true);
+                    break;
+                }
+
+                if (json[i][0] === "PZA") {
+                    const value = parseFloat(json[i][19].replace(/[^\d.]/g, ''));
+                    const qt = parseFloat(json[i][1]);
+
+                    for (let j = 1; j <= qt; j++) {
+                        products.push({name: json[i][4], price: value})
+                    }
+                }
             }
-        };
-    });
+
+            let creditValue = ticket[37];
+            creditValue = parseFloat(creditValue.replace(/[^\d.]/g, ''));
+
+            if (creditValue > 0) {
+                console.log(filtered)
+                filtered.push({
+                    "folio": ticket[5],
+                    "total": creditValue,
+                    products,
+                })
+            }
+        }
+
+        return filtered
+    }, []);
 
     console.log("CREDITO: ", creditTickets);
 
@@ -309,11 +316,29 @@ function readFile(file) {
     console.log("Totals: ", cash, card,  deposit);
 
 
-    window.catalog = pzs.map(pz => {
-        return {name: pz[4], price: parseFloat(pz[19].replace(/[^\d.]/g, ''))}
+    window.catalog = tickets.map(pz => {
+        const value = parseFloat(pz[30].replace(/[^\d.]/g, ''));
+        const folio = parseFloat(pz[1]);
+
+        return {name: pz[5], price: value}
     });
 
-    console.log(catalog);
+    // let smt = [];
+    // for (let i = 0; i < catalog.length; i++) {
+    //     const isInCatalog = smt.findIndex(product => {
+    //         return product.name === catalog[i].name
+    //     });
+
+    //     console.log(isInCatalog);
+
+    //     if (isInCatalog === -1) {
+    //         smt.push(catalog[i]);
+    //     }
+    // }
+
+    // catalog = smt;
+
+    console.table(catalog);
 
     let test = catalog.map(product => product.price);
 
@@ -328,12 +353,20 @@ function fillTable(data, final=0) {
     var body = table.getElementsByTagName("tbody")[0];
 
     data.forEach(item => {
-        dataTable.row
+        const row = dataTable.row
             .add([
+                '',
                 item.folio,
                 "$" + item.total,
             ])
-            .draw(false);
+
+
+        dataTable.draw(false)
+
+        console.log("ID :", item.folio, row.node());
+        row.node().setAttribute("id", item.folio);
+
+        console.log(row, row.node());
         // item.products.map(product => {
 
         // let productsHTML = item.products.map(product => `<tr><td>${product.name} $${product.price}</td></tr>`);
@@ -352,15 +385,19 @@ function fillTable(data, final=0) {
 function calc(value, tValue, tWeight, tickets) {
     console.log("data: ", value, tValue, tWeight);
 
-    let result = getValues(parseFloat(value), tValue, totalTickets);
+    // let result = getValues(parseFloat(value), tValue, totalTickets);
 
-    if (parseFloat(value) - result.maxValue > 0) {
-        console.log("Calling knapsack with: ", parseFloat(value) - result.maxValue, tValue, tWeight);
+    // if (parseFloat(value) - result.maxValue > 0) {
+    //     console.log("Calling knapsack with: ", parseFloat(value) - result.maxValue, tValue, tWeight);
 
-        const knapsackResult = unboundedKnapsackBetter(parseFloat(value) - result.maxValue, tValue, tWeight);
+    //     const knapsackResult = unboundedKnapsackBetter(parseFloat(value) - result.maxValue, tWeight, tValue, tWeight.length);
 
-        result = { maxValue: result.maxValue + knapsackResult.maxValue, selectedItems: result.selectedItems.concat(knapsackResult.selectedItems)};
-    }
+    //     result = { maxValue: result.maxValue + knapsackResult.maxValue, selectedItems: result.selectedItems.concat(knapsackResult.selectedItems)};
+    // }
+
+    const knapsackResult = unboundedKnapsackBetter(parseFloat(value), tWeight, tValue, tWeight.length);
+
+    let result = knapsackResult;
 
     console.log("Result: ", result);
 
@@ -373,75 +410,86 @@ function calc(value, tValue, tWeight, tickets) {
 
         totalValue += value.price;
 
-        return catalog[idx];
+        return {
+            folio: 1,
+            total: catalog[idx].price
+        }
     });
 
     shuffleArray(final);
 
-    console.log("El resultado es de ", final.length, " productos y ", totalTickets, "tickets");
-    let productByTicket = Math.floor(final.length / totalTickets);
-    const productPerTicket = productByTicket
-        ? productByTicket
-        : 1;
-    
-    let someticket = totalTickets;
-    if (final.length % totalTickets > 0 && productByTicket !== 0) {
-        someticket--;
-    }
-    console.log("Tiene que generar ", someticket, " tickets");
-    console.log("Con ", productPerTicket, " productos por ticket");
+    finalTicketList = final;
 
-    let productsPerTicket = [];
-    let finalTicket = [];
-    let totalM = 0;
-    let total = 0;
-    let counter = 0;
-    let products = final.length;
-    final.forEach(product => {
-        if (someticket === 0) return;
+    console.log("El resultado es de ", final, " productos y ", totalTickets, "tickets");
+    // let productByTicket = Math.floor(final.length / totalTickets);
+    // const productPerTicket = productByTicket
+    //     ? productByTicket
+    //     : 1;
+    // 
+    // let someticket = totalTickets;
+    // if (final.length % totalTickets > 0 && productByTicket !== 0) {
+    //     someticket--;
+    // }
+    // console.log("Tiene que generar ", someticket, " tickets");
+    // console.log("Con ", productPerTicket, " productos por ticket");
 
-        total += product.price;
-        productsPerTicket.push(product)
-        products--;
-        counter++;
+    // let productsPerTicket = [];
+    // let finalTicket = [];
+    // let totalM = 0;
+    // let total = 0;
+    // let counter = 0;
+    // let products = final.length;
+    // final.forEach(product => {
+    //     if (someticket === 0) return;
 
-        if (counter === productPerTicket) {
-            console.log("Se creo un ticket con: ", counter, " productos");
-            finalTicket.push({
-                folio: myFolio,
-                total: total,
-                products: productsPerTicket,
-            });
+    //     total += product.price;
+    //     productsPerTicket.push(product)
+    //     products--;
+    //     counter++;
 
-            productsPerTicket = [];
+    //     if (counter === productPerTicket) {
+    //         console.log("Se creo un ticket con: ", counter, " productos");
+    //         finalTicket.push({
+    //             folio: myFolio,
+    //             total: total,
+    //             products: productsPerTicket,
+    //         });
 
-            totalM += total;
-            total = 0;
-            counter = 0;
+    //         productsPerTicket = [];
 
-            myFolio += 1;
-            someticket--;
-            console.log(someticket);
-        }
-    });
-    console.log("Se crearon tickets: ", final);
+    //         totalM += total;
+    //         total = 0;
+    //         counter = 0;
 
-    if (products && final.length % totalTickets > 0 && totalTickets !== 0) {
-        let lastProducts = final.slice(Math.max((totalTickets - 1) * productPerTicket, 1))
-        finalTicket.push({folio: myFolio, total: totalValue - totalM, products: lastProducts});
-    };
-    console.log("Se agrego un utlimo ticket con: ", (totalValue - totalM));
+    //         myFolio += 1;
+    //         someticket--;
+    //         console.log(someticket);
+    //     }
+    // });
+    // console.log("Se crearon tickets: ", final);
 
-    console.log("Tickets generados: ", finalTicket);
+    // if (products && final.length % totalTickets > 0 && totalTickets !== 0) {
+    //     let lastProducts = final.slice(Math.max((totalTickets - 1) * productPerTicket, 1))
+    //     finalTicket.push({folio: myFolio, total: totalValue - totalM, products: lastProducts});
+    // };
+    // console.log("Se agrego un utlimo ticket con: ", (totalValue - totalM));
 
-    if (result.maxValue) {
-        console.log("Agregar one more: ", result.maxValue, parseFloat(window.total))
-        if (result.maxValue < parseFloat(window.total)) {
-            addOneMore(tValue, finalTicket, result.maxValue);
-        }
+    // console.log("Tickets generados: ", finalTicket);
 
-        fillTable(finalTicket, totalValue);
-    }
+    // if (result.maxValue) {
+    //     console.log("Agregar one more: ", result.maxValue, parseFloat(window.total))
+    //     if (result.maxValue < parseFloat(window.total)) {
+    //         addOneMore(tValue, finalTicket, result.maxValue);
+    //     }
+
+    //     console.log("Estos son los tickets finales: ", finalTicket);
+
+    //     finalTicketList =  finalTicketList.concat(finalTicket);
+
+    //     fillTable(finalTicket, totalValue);
+    // }
+
+    // console.log("<   > ", finalTicketList);
 };
 
 function insertCredit(monto) {
@@ -451,6 +499,7 @@ function insertCredit(monto) {
     var body = table.getElementsByTagName("tbody")[0];
 
     let usedCreditTickets = 0;
+    let idk = [];
     creditTickets.every(item => {
         console.log(totalTickets);
         if (totalTickets <= 0) return false;
@@ -458,18 +507,21 @@ function insertCredit(monto) {
         if (totalValue + item.total > monto) return false;
 
         console.log("QUE TA PASANDO ", item);
-        const rows = dataTable.row
+        const row = dataTable.row
             .add([
+                '',
                 myFolio,
                 "$" + item.total,
-            ])
-            .draw(false)
-            .rows().nodes().toArray();
+            ]);
 
+        dataTable.draw(false);
+
+        row.node().style.backgroundColor = "rgba(14, 116, 144, 0.4)";
+        row.node().setAttribute("id", myFolio);
+
+        idk.push({...item, folio: myFolio});
         usedCreditTickets++;
 
-        console.log("credit rows: ", rows);
-        rows[rows.length - 1].style.backgroundColor = "rgba(14, 116, 144, 0.4)";
         // rows[rows.length - 1].style.color = "white";
         // body.insertAdjacentHTML("beforeend", `<tr class="odd:bg-white even:bg-gray-50 border-b"><td class="px-6 py-4"> ${myFolio} </td><td class="px-6 py-4"> $${item.total} </td></tr>`);
         myFolio += 1;
@@ -479,6 +531,10 @@ function insertCredit(monto) {
 
         return true;
     });
+
+    console.log("Estos son los tickets finales de credito: ", idk);
+
+    finalTicketList = finalTicketList.concat(idk);
 
     if (usedCreditTickets < creditTickets.length) {
         return false
@@ -513,6 +569,8 @@ document.getElementById("start").addEventListener('click', function(event) {
 });
 
 document.getElementById("volver").addEventListener('click', function(event) {
+    dataTable.column(2).footer().innerHTML = 'Total:';
+
     fileInput.value = "";
 
     document.getElementById("error").innerHTML = "";
@@ -548,6 +606,7 @@ const form = document.getElementById('form');
 form.addEventListener("submit", (event) => {
     event.preventDefault();
 
+    finalTicketList = [];
     dataTable.clear().draw();
 
     var table = document.getElementById("tickets");
@@ -564,7 +623,8 @@ form.addEventListener("submit", (event) => {
     let last = form.elements["final"].value;
 
     window.myFolio = parseFloat(first);
-    window.totalTickets = last - first + 1;
+    const numberOfTickets = last - first + 1;
+    window.totalTickets = numberOfTickets;
 
     console.log("Se quieren generar: ", totalTickets);
     
@@ -580,6 +640,13 @@ form.addEventListener("submit", (event) => {
         console.log("CALCULANDO: ", total, totalTickets);
         calc(total, tValue, tWeight, totalTickets);
     }
+
+    console.log("TOTALES: ", finalTicketList.length, totalTickets);
+    // if (finalTicketList.length < numberOfTickets) {
+    //     document.getElementById("error").innerHTML = "No hay suficientes productos para generar los tickets";
+    // } else {
+    //     document.getElementById("error").innerHTML = "";
+    // }
 
     setTableTotal();
 });
