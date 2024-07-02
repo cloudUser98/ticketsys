@@ -193,39 +193,40 @@ function getValues(t, val, min) {
     return {maxValue, selectedItems}
 }
 
-function unboundedKnapsackBetter(W, wt, val, n) {
-    // Making and initializing dp array
-    var dp = Array(W + 1).fill(0);
-    
-    // To store the items included in the knapsack
-    var keep = Array(n + 1).fill().map(() => Array(W + 1).fill(false));
+function unboundedKnapsackBetter(profit, weight, maxCapacity, maxItems) {
+    const n = weight.length;
 
-    for (let i = 1; i < n + 1; i++) {
-        for (let w = W; w >= 0; w--) {
-            if (wt[i - 1] <= w) {
-                if (dp[w] < dp[w - wt[i - 1]] + val[i - 1]) {
-                    dp[w] = dp[w - wt[i - 1]] + val[i - 1];
-                    keep[i][w] = true;
+    // Create a 2D array to store results of subproblems
+    // dp[i][j] will store the maximum value that can be achieved with at most i items and capacity j
+    const dp = new Array(maxItems + 1).fill(null).map(() => new Array(maxCapacity + 1).fill(0));
+
+    // Array to store selected items for each subproblem
+    const selectedItems = new Array(maxItems + 1).fill(null).map(() => new Array(maxCapacity + 1).fill([]));
+
+    // Build table dp[][] and selectedItems[][] in bottom up manner
+    for (let item = 1; item <= n; item++) {
+        for (let k = maxItems; k >= 1; k--) {
+            for (let w = maxCapacity; w >= weight[item - 1]; w--) {
+                // Check if including the current item gives a better profit
+                if (dp[k][w] < dp[k - 1][w - weight[item - 1]] + profit[item - 1]) {
+                    dp[k][w] = dp[k - 1][w - weight[item - 1]] + profit[item - 1];
+                    // Update selected items for dp[k][w] to include current item index
+                    selectedItems[k][w] = [...selectedItems[k - 1][w - weight[item - 1]], item - 1];
                 }
             }
         }
     }
-    
-    // Now, backtrack to find the items to include
-    let w = W;
-    let selectedItems = [];
-    
-    for (let i = n; i > 0 && w > 0; i--) {
-        if (keep[i][w]) {
-            selectedItems.push(i - 1); // item indices are 0-based
-            w -= wt[i - 1];
-        }
-    }
 
-    // Return the maximum value and the selected items
+    // console.log("Selected items:", selectedItems[maxItems][maxCapacity]);
+    // 
+    // let items = selectedItems[maxItems][maxCapacity].map(index => index + 1);
+
+    // console.log("Selected items:", items);
+
+    // Return the maximum value that can be achieved with maxItems items and capacity 'maxCapacity'
     return {
-        maxValue: dp[W],
-        selectedItems: selectedItems
+        maxValue: dp[maxItems][maxCapacity],
+        selectedItems: selectedItems[maxItems][maxCapacity]
     }
 }
 
@@ -243,9 +244,16 @@ function readFile(file) {
     console.log("Informacion del reporte: ", json);
 
     let totalGeneralRow = json.filter(row => row[11] === "Total General:")[0];
+
+    console.log("TOTAL GENERAL ROW: ", totalGeneralRow);
+
     let fromrow = totalGeneralRow[21];
 
-    window.totalGeneral = parseFloat(fromrow.replace(/[^\d.]/g, ''));
+    if (typeof fromrow === "string") {
+        fromrow = parseFloat(fromrow.replace(/[^\d.]/g, ''));
+    }
+
+    window.totalGeneral = fromrow;
 
     let pzs = json.filter(value => value[0] === "PZA");
     let tickets = json.filter(value => value[0] === "Ticket");
@@ -256,9 +264,12 @@ function readFile(file) {
     console.log("Tickets: ", tickets);
 
     window.creditTickets = json.reduce((filtered, ticket, idx) => {
-        const credit = parseFloat(ticket[37].replace(/[^\d.]/g, ''));
+        if (ticket[37]) {
+            let credit = ticket[37];
+            if (typeof ticket[37] === "string") {
+                credit = parseFloat(credit.replace(/[^\d.]/g, ''));
+            }
 
-        if (credit) {
             console.log("TICKET DE CREDITO CON ID ", idx);
             console.log("Tiene credito", credit);
             let products = []
@@ -269,7 +280,11 @@ function readFile(file) {
                 }
 
                 if (json[i][0] === "PZA") {
-                    const value = parseFloat(json[i][19].replace(/[^\d.]/g, ''));
+                    let value = json[i][19];
+                    if (typeof value === "string") {
+                        value = parseFloat(value.replace(/[^\d.]/g, ''));
+                    }
+
                     const qt = parseFloat(json[i][1]);
 
                     for (let j = 1; j <= qt; j++) {
@@ -279,7 +294,9 @@ function readFile(file) {
             }
 
             let creditValue = ticket[37];
-            creditValue = parseFloat(creditValue.replace(/[^\d.]/g, ''));
+            if (typeof creditValue === "string") {
+                creditValue = parseFloat(creditValue.replace(/[^\d.]/g, ''));
+            }
 
             if (creditValue > 0) {
                 console.log(filtered)
@@ -294,7 +311,48 @@ function readFile(file) {
         return filtered
     }, []);
 
-    console.log("CREDITO: ", creditTickets);
+    window.catalog = json.reduce((filtered, ticket, idx) => {
+        if (ticket[0] === "Ticket" && ( ticket[37] === undefined || ticket[37] === 0 )) {
+
+            console.log("TICKET CON ID ", idx);
+
+            let products = []
+            for (let i = idx + 1; i < json.length; i++) {
+                if (json[i][0] === "Ticket") {
+                    console.log(true);
+                    break;
+                }
+
+                if (json[i][0] === "PZA") {
+                    let value = json[i][19];
+                    if (typeof value === "string") {
+                        value = parseFloat(value.replace(/[^\d.]/g, ''));
+                    }
+
+                    const qt = parseFloat(json[i][1]);
+
+                    for (let j = 1; j <= qt; j++) {
+                        products.push({name: json[i][4], price: value})
+                    }
+                }
+            }
+
+            let ticketTotal = ticket[30];
+            if (typeof ticket[30] === "string") {
+                ticketTotal = parseFloat(ticketTotal.replace(/[^\d.]/g, ''));
+            }
+
+            filtered.push({
+                "folio": ticket[5],
+                "total": ticketTotal,
+                products,
+            })
+        }
+
+        return filtered
+    }, []);
+
+    console.log("CATALODO DE TICKETS", creditTickets, catalog);
 
     window.cash = 0;
     window.card = 0;
@@ -302,10 +360,33 @@ function readFile(file) {
     for (let i = 0; i < tickets.length; i++) {
         let ticket = tickets[i];
 
-        console.log("--> ", parseFloat(ticket[CASH].replace(/[^\d.]/g, '')));
-        cash += parseFloat(ticket[CASH].replace(/[^\d.]/g, ''));
-        card += parseFloat(ticket[CARD].replace(/[^\d.]/g, ''));
-        deposit += parseFloat(ticket[DEPOSIT].replace(/[^\d.]/g, ''));
+        console.log("NO PUEDE PARSEAR: ", ticket[CASH]);
+
+        if (typeof ticket[CASH] === "string") {
+            window.cash += parseFloat(ticket[CASH].replace(/[^\d.]/g, ''));
+        } else {
+            window.cash += ticket[CASH];
+        }
+
+        if (typeof ticket[CARD] === "string") {
+            const lol = parseFloat(ticket[CARD].replace(/[^\d.]/g, ''));
+            console.log("AUAUAUAUAUAUAUAUAUAUAUA-> ", lol);
+
+            if (lol) {
+                window.card += lol;
+            }
+        } else {
+            console.log("AUAUAUAUAUAUAUAUAUAUAUA-> ", ticket[CARD]);
+            if (ticket[CARD]) {
+                window.card += ticket[CARD];
+            }
+        }
+
+        if (typeof ticket[DEPOSIT] === "string") {
+            window.deposit += parseFloat(ticket[DEPOSIT].replace(/[^\d.]/g, ''));
+        } else {
+            window.deposit += ticket[DEPOSIT];
+        }
     };
 
     document.getElementById("total-debit").innerHTML = "$" + cash;
@@ -317,7 +398,13 @@ function readFile(file) {
 
 
     window.catalog = tickets.map(pz => {
-        const value = parseFloat(pz[30].replace(/[^\d.]/g, ''));
+        console.log("No se puedeeeeeeeeeee: ", pz[30]);
+
+        let value = pz[30];
+        if (typeof pz[30] === "string") {
+            value = parseFloat(value.replace(/[^\d.]/g, ''));
+        }
+
         const folio = parseFloat(pz[1]);
 
         return {name: pz[5], price: value}
@@ -395,7 +482,7 @@ function calc(value, tValue, tWeight, tickets) {
     //     result = { maxValue: result.maxValue + knapsackResult.maxValue, selectedItems: result.selectedItems.concat(knapsackResult.selectedItems)};
     // }
 
-    const knapsackResult = unboundedKnapsackBetter(parseFloat(value), tWeight, tValue, tWeight.length);
+    const knapsackResult = unboundedKnapsackBetter(tValue, tWeight, parseFloat(value), parseFloat(totalTickets));
 
     let result = knapsackResult;
 
@@ -421,6 +508,8 @@ function calc(value, tValue, tWeight, tickets) {
     finalTicketList = final;
 
     console.log("El resultado es de ", final, " productos y ", totalTickets, "tickets");
+
+    fillTable(finalTicketList, result.maxValue);
     // let productByTicket = Math.floor(final.length / totalTickets);
     // const productPerTicket = productByTicket
     //     ? productByTicket
