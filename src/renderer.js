@@ -312,9 +312,7 @@ function readFile(file) {
     }, []);
 
     window.catalog = json.reduce((filtered, ticket, idx) => {
-        if (ticket[0] === "Ticket" && ( ticket[37] === undefined || ticket[37] === 0 )) {
-
-            console.log("TICKET CON ID ", idx);
+        if (ticket[0] === "Ticket" && ( ticket[37] === undefined || ticket[37] === 0 || ticket[37] === "$ 0.00" )) {
 
             let products = []
             for (let i = idx + 1; i < json.length; i++) {
@@ -329,7 +327,15 @@ function readFile(file) {
                         value = parseFloat(value.replace(/[^\d.]/g, ''));
                     }
 
-                    const qt = parseFloat(json[i][1]);
+                    let qt = json[i][1];
+                    console.log("< --------------> > ", qt);
+                    if (typeof qt === "string") {
+                        qt = parseFloat(qt);
+                    }
+
+                    if (qt > 1) {
+                        value = Math.floor(value / qt);
+                    }
 
                     for (let j = 1; j <= qt; j++) {
                         products.push({name: json[i][4], price: value})
@@ -360,8 +366,6 @@ function readFile(file) {
     for (let i = 0; i < tickets.length; i++) {
         let ticket = tickets[i];
 
-        console.log("NO PUEDE PARSEAR: ", ticket[CASH]);
-
         if (typeof ticket[CASH] === "string") {
             window.cash += parseFloat(ticket[CASH].replace(/[^\d.]/g, ''));
         } else {
@@ -370,13 +374,11 @@ function readFile(file) {
 
         if (typeof ticket[CARD] === "string") {
             const lol = parseFloat(ticket[CARD].replace(/[^\d.]/g, ''));
-            console.log("AUAUAUAUAUAUAUAUAUAUAUA-> ", lol);
 
             if (lol) {
                 window.card += lol;
             }
         } else {
-            console.log("AUAUAUAUAUAUAUAUAUAUAUA-> ", ticket[CARD]);
             if (ticket[CARD]) {
                 window.card += ticket[CARD];
             }
@@ -397,18 +399,16 @@ function readFile(file) {
     console.log("Totals: ", cash, card,  deposit);
 
 
-    window.catalog = tickets.map(pz => {
-        console.log("No se puedeeeeeeeeeee: ", pz[30]);
+    // window.catalog = tickets.map(pz => {
+    //     let value = pz[30];
+    //     if (typeof pz[30] === "string") {
+    //         value = parseFloat(value.replace(/[^\d.]/g, ''));
+    //     }
 
-        let value = pz[30];
-        if (typeof pz[30] === "string") {
-            value = parseFloat(value.replace(/[^\d.]/g, ''));
-        }
+    //     const folio = parseFloat(pz[1]);
 
-        const folio = parseFloat(pz[1]);
-
-        return {name: pz[5], price: value}
-    });
+    //     return {name: pz[5], price: value}
+    // });
 
     // let smt = [];
     // for (let i = 0; i < catalog.length; i++) {
@@ -425,9 +425,9 @@ function readFile(file) {
 
     // catalog = smt;
 
-    console.table(catalog);
+    // console.table(catalog);
 
-    let test = catalog.map(product => product.price);
+    let test = catalog.map(product => product.total);
 
     console.log("Weights: ", test);
 
@@ -482,7 +482,7 @@ function calc(value, tValue, tWeight, tickets) {
     //     result = { maxValue: result.maxValue + knapsackResult.maxValue, selectedItems: result.selectedItems.concat(knapsackResult.selectedItems)};
     // }
 
-    const knapsackResult = unboundedKnapsackBetter(tValue, tWeight, parseFloat(value), parseFloat(totalTickets));
+    const knapsackResult = unboundedKnapsackBetter(tValue, tWeight, parseFloat(total), parseFloat(totalTickets));
 
     let result = knapsackResult;
 
@@ -499,17 +499,18 @@ function calc(value, tValue, tWeight, tickets) {
 
         return {
             folio: 1,
-            total: catalog[idx].price
+            total: catalog[idx].total,
+            products: catalog[idx].products,
         }
     });
 
     shuffleArray(final);
 
-    finalTicketList = final;
+    // finalTicketList = final;
 
     console.log("El resultado es de ", final, " productos y ", totalTickets, "tickets");
 
-    fillTable(finalTicketList, result.maxValue);
+    // fillTable(finalTicketList, result.maxValue);
     // let productByTicket = Math.floor(final.length / totalTickets);
     // const productPerTicket = productByTicket
     //     ? productByTicket
@@ -523,38 +524,45 @@ function calc(value, tValue, tWeight, tickets) {
     // console.log("Con ", productPerTicket, " productos por ticket");
 
     // let productsPerTicket = [];
-    // let finalTicket = [];
+    let finalTicket = [];
     // let totalM = 0;
     // let total = 0;
     // let counter = 0;
     // let products = final.length;
-    // final.forEach(product => {
-    //     if (someticket === 0) return;
+    final.forEach(ticket => {
+        finalTicket.push({
+            folio: myFolio,
+            total: ticket.total,
+            products: ticket.products,
+        });
 
-    //     total += product.price;
-    //     productsPerTicket.push(product)
-    //     products--;
-    //     counter++;
+        myFolio += 1;
+        // if (someticket === 0) return;
 
-    //     if (counter === productPerTicket) {
-    //         console.log("Se creo un ticket con: ", counter, " productos");
-    //         finalTicket.push({
-    //             folio: myFolio,
-    //             total: total,
-    //             products: productsPerTicket,
-    //         });
+        // total += product.price;
+        // productsPerTicket.push(product)
+        // products--;
+        // counter++;
 
-    //         productsPerTicket = [];
+        // if (counter === productPerTicket) {
+        //     console.log("Se creo un ticket con: ", counter, " productos");
+        //     finalTicket.push({
+        //         folio: myFolio,
+        //         total: total,
+        //         products: productsPerTicket,
+        //     });
 
-    //         totalM += total;
-    //         total = 0;
-    //         counter = 0;
+        //     productsPerTicket = [];
 
-    //         myFolio += 1;
-    //         someticket--;
-    //         console.log(someticket);
-    //     }
-    // });
+        //     totalM += total;
+        //     total = 0;
+        //     counter = 0;
+
+        //     myFolio += 1;
+        //     someticket--;
+        //     console.log(someticket);
+        // }
+    });
     // console.log("Se crearon tickets: ", final);
 
     // if (products && final.length % totalTickets > 0 && totalTickets !== 0) {
@@ -573,12 +581,12 @@ function calc(value, tValue, tWeight, tickets) {
 
     //     console.log("Estos son los tickets finales: ", finalTicket);
 
-    //     finalTicketList =  finalTicketList.concat(finalTicket);
+    finalTicketList =  finalTicketList.concat(finalTicket);
 
-    //     fillTable(finalTicket, totalValue);
+    fillTable(finalTicket, totalValue);
     // }
 
-    // console.log("<   > ", finalTicketList);
+    console.log("<   > ", finalTicketList);
 };
 
 function insertCredit(monto) {
