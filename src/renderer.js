@@ -37,6 +37,10 @@ import Swal from 'sweetalert2'
 
 window.finalTicketList = [];
 var canUseCashTickets = false;
+var formatter = new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+});
 
 function ticket(folio, date, time = "00:00:00 AM", total, efectivo="0", credito="0", caja, cliente, cajero, products) {
     const renderedProducts = products.map(({name, number, price, total}) => {
@@ -45,10 +49,10 @@ function ticket(folio, date, time = "00:00:00 AM", total, efectivo="0", credito=
         <div style="display:flex;justify-content:end;" class="font">
             <div style="display:flex;flex-wrap:wrap;width:67%;">
                 <div style="flex:1;text-align:right;">${number}.0</div>
-                <div style="padding-left:.4rem;flex:1;text-align:right;">${price}.00</div>
+                <div style="padding-left:.4rem;flex:1;text-align:right;">${price}</div>
                 <div style="flex:1;text-align:right;">0.00</div>
             </div>
-            <div style="width:33%;text-align:right;">${total}.00</div>
+            <div style="width:33%;text-align:right;">${total}</div>
         </div>
         <div style="text-align:center;">--------------------------</div>
         `
@@ -58,7 +62,7 @@ function ticket(folio, date, time = "00:00:00 AM", total, efectivo="0", credito=
     <div style="background-color:green;" class="ticket">
         <div class="ticket-header">
             <div style="text-align:center;">
-                <img src="../logo.png" style="width:190px;height:auto;">
+                <img src="/logo.png" style="width:190px;height:auto;">
             </div>
         </div>
         <div class="ticket-body">
@@ -146,8 +150,48 @@ function ticket(folio, date, time = "00:00:00 AM", total, efectivo="0", credito=
 
 
 function printTickets() {
-    const renderedTickets = finalTicketList.map(({folio, date, time, total, efectivo, credito, caja, cliente, cajero, products}) => {
-        return ticket(folio, date, time, total, efectivo, credito, caja, cliente, cajero, products)
+    const renderedTickets = finalTicketList.map((
+        {
+            folio,
+            date,
+            time,
+            total,
+            efectivo,
+            credito,
+            caja,
+            cliente,
+            cajero,
+            products
+        }
+    ) => {
+        console.log("WTF ------------> ", total, efectivo, credito);
+
+        const correctFormattedTickets = products.map(product => {
+            const price = formatter.format(product.price);
+            const total = formatter.format(product.total);
+
+            return {...product, price, total}
+        })
+
+        efectivo ? efectivo = efectivo : efectivo = 0;
+        credito ? credito = credito : credito = 0;
+
+        if (total !== undefined || total === 0) {
+            // total = parseFloat(total);
+            total = formatter.format(total);
+        }
+
+        if (efectivo !== undefined || efectivo === 0) {
+            // efectivo = parseFloat(efectivo);
+            efectivo = formatter.format(efectivo);
+        }
+
+        if (credito !== undefined || efectivo === 0) {
+            // credito = parseFloat(credito);
+            credito = formatter.format(credito);
+        }
+
+        return ticket(folio, date, time, total, efectivo, credito, caja, cliente, cajero, correctFormattedTickets)
     });
 
     console.log("HTML TICKETS: ", renderedTickets);
@@ -172,7 +216,7 @@ function printTickets() {
 
                 @font-face {
                     font-family: 'Noto Sans Mono';
-                    src: url('../resources/fonts/NotoSansMono-VariableFont_wdth,wght.ttf') format(truetype);
+                    src: url('/NotoSansMono-VariableFont_wdth,wght.ttf') format(truetype);
                 }
 
                 .font {
@@ -818,7 +862,7 @@ function readFile(file) {
 
     // console.table(catalog);
 
-    let test = catalog.map(ticket => ticket.total);
+    let test = catalog.map(ticket => Math.round(ticket.total));
 
     console.log("Weights: ", test);
 
@@ -876,7 +920,11 @@ function fillTable(data, final=0) {
 function calc(value, tValue, tWeight, tickets) {
     console.log("data: ", value, tValue, tWeight);
 
-    const knapsackResult = unboundedKnapsackBetter(tValue, tWeight, parseFloat(total), parseFloat(totalTickets));
+    const knapsackResult = unboundedKnapsackBetter(tValue,
+        tWeight,
+        parseFloat(Math.round(total)),
+        parseFloat(totalTickets)
+    );
 
     let result = knapsackResult;
 
@@ -921,7 +969,7 @@ function calc(value, tValue, tWeight, tickets) {
 };
 
 function insertCredit(monto) {
-    let test = creditTickets.map(ticket => ticket.total);
+    let test = creditTickets.map(ticket => Math.round(ticket.total));
 
     console.log("CREDIT: ", test, creditTickets);
 
@@ -934,7 +982,7 @@ function insertCredit(monto) {
     const knapsackResult = unboundedKnapsackBetter(
         test,
         test,
-        parseFloat(monto),
+        parseFloat(Math.round(monto)),
         parseFloat(totalTickets)
     );
 
@@ -951,9 +999,12 @@ function insertCredit(monto) {
         totalValue += value.total;
 
         usedCreditTickets += 1;
+        totalTickets--;
+        total -= value.total;
 
         return {
             ...value,
+            credit: value.total,
             folio: 1
         }
     });
@@ -992,7 +1043,7 @@ function insertCredit(monto) {
     }
 
     if (final.length >= creditTickets.length) {
-        canUseCashTickets = !canUseCashTickets;
+        canUseCashTickets = true;
     }
 
     return final
@@ -1027,6 +1078,8 @@ document.getElementById("start").addEventListener('click', function(event) {
 
 document.getElementById("volver").addEventListener('click', function(event) {
     dataTable.column(2).footer().innerHTML = 'Total:';
+
+    document.getElementById("errors").innerHTML = "";
 
     fileInput.value = "";
 
@@ -1065,6 +1118,7 @@ document.getElementById("volver").addEventListener('click', function(event) {
 
 const form = document.getElementById('form');
 form.addEventListener("submit", (event) => {
+    canUseCashTickets = false;
     document.getElementById("errors").innerHTML = "";
 
     event.preventDefault();
@@ -1086,6 +1140,7 @@ form.addEventListener("submit", (event) => {
     let last = form.elements["final"].value;
 
     monto = Number(monto.replace(/[^0-9.-]+/g,""));
+    monto =  Math.round(monto);
 
     window.myFolio = parseFloat(first);
     const numberOfTickets = last - first + 1;
@@ -1107,10 +1162,15 @@ form.addEventListener("submit", (event) => {
 
     window.total = monto + 200;
 
-    const result = insertCredit(parseFloat(monto) + 200);
+    let result = [];
+    if (creditTickets.length > 0) {
+        result = insertCredit(parseFloat(monto) + 200);
 
-    if (result) {
-        finalTicketList = finalTicketList.concat(result);
+        if (result) {
+            finalTicketList = finalTicketList.concat(result);
+        }
+    } else {
+        canUseCashTickets = true;
     }
 
     let calcResult = {};
