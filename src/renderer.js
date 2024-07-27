@@ -42,7 +42,7 @@ var formatter = new Intl.NumberFormat('en-US', {
     maximumFractionDigits: 2
 });
 
-function ticket(folio, date, time = "00:00:00 AM", total, efectivo="0", credito="0", caja, cliente, cajero, products) {
+function ticket(folio, date, time, total, efectivo="0", credito="0", caja, cliente, cajero, products) {
     const renderedProducts = products.map(({name, number, price, total}) => {
         return `
         <div class="font" style="white-space:nowrap;overflow:hidden;">${name}</div>
@@ -149,6 +149,86 @@ function ticket(folio, date, time = "00:00:00 AM", total, efectivo="0", credito=
 }
 
 
+function getDateString(dateString) {
+    console.log("GETTING DATE STRING: ", dateString);
+
+    // Define regex patterns for date and date-time formats
+    const datePattern = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+    const dateTimePattern = /^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s+(AM|PM)$/;
+
+    // Check if the dateString matches the date pattern
+    const dateMatch = dateString.match(datePattern);
+    if (dateMatch) {
+        // If it matches date pattern, return formatted date
+        const [, day, month, year] = dateMatch;
+        // const formattedDate = `${year}-${month}-${day}`;
+        // return formattedDate;
+        return {
+            date: `${day}/${month}/${year}`,
+            time: "00:00:00 AM"
+        }
+    }
+
+    // Check if the dateString matches the date-time pattern
+    const dateTimeMatch = dateString.match(dateTimePattern);
+    if (dateTimeMatch) {
+        // If it matches date-time pattern, return formatted date and time
+        const [, day, month, year, hours, minutes, seconds, period] = dateTimeMatch;
+        const formattedDate = `${year}-${month}-${day}`;
+        const formattedTime = `${period === 'AM' ? hours : (parseInt(hours) + 12).toString().padStart(2, '0')}:${minutes}:${seconds} ${period}`;
+        // return `${formattedDate} ${formattedTime}`;
+
+        return {
+            date: `${day}/${month}/${year}`,
+            time: formattedTime,
+        }
+    }
+
+    // Return 'none' if the time is in the string but has the wrong format
+    return null
+}
+
+
+function parseDateString(dateString) {
+    console.log("parsing dateString: ", dateString);
+
+    // Regular expression to match the full date and time format
+    const fullDateTimePattern = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{1,2}):(\d{2}):(\d{2}) (AM|PM)$/;
+    // Regular expression to match only the date format (e.g., 25/09/5)
+    const dateOnlyPattern = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+
+    // Check if the string matches the full date and time format
+    if (fullDateTimePattern.test(dateString)) {
+        let [_, day, month, year, hours, minutes, seconds, meridian] = dateString.match(fullDateTimePattern);
+
+        // Convert the time to 24-hour format if necessary
+        if (meridian === "PM" && hours !== "12") {
+            hours = parseInt(hours) + 12;
+        } else if (meridian === "AM" && hours === "12") {
+            hours = 0;
+        }
+
+        // Create and return the Date object (month is 0-indexed)
+        return new Date(year, month - 1, day, hours, minutes, seconds);
+    } else if (dateOnlyPattern.test(dateString)) {
+        // If the string matches only the date pattern, throw an error
+        let [_, day, month, year] = dateString.match(dateOnlyPattern);
+
+        // Return a Date object with the time set to 12:00 AM
+        return new Date(year, month - 1, day, 0, 0, 0);
+    } else {
+        // If the string does not match the expected format, throw an error
+        try {
+            let [_, day, month, year] = dateString.match(dateOnlyPattern);
+
+            return new Date(year, month - 1, day, 0, 0, 0);
+        } catch {
+            return new Date(0, 0, 0, 0, 0, 0, 0);
+        }
+    }
+}
+
+
 function printTickets() {
     const renderedTickets = finalTicketList.map((
         {
@@ -165,6 +245,15 @@ function printTickets() {
         }
     ) => {
         console.log("WTF ------------> ", total, efectivo, credito);
+
+        const formattedDate = getDateString(date);
+
+        console.log("RESULT OF STRING DATE: ", formattedDate);
+
+        if (formattedDate) {
+            date = formattedDate.date;
+            time = formattedDate.time;
+        }
 
         const correctFormattedTickets = products.map(product => {
             const price = formatter.format(product.price);
@@ -682,12 +771,12 @@ function readFile(file) {
                 creditValue = parseFloat(creditValue.replace(/[^\d.]/g, ''));
             }
 
-            console.log("AAAAAAAA FECHAS 1 ---> ", ticket[3], ticket[3].replace("/", "-"), new Date(ticket[3]));
             const [day, month, year] = ticket[3].split('/');
 
             // Construct a new Date object
             // Note: JavaScript's Date constructor expects the format "YYYY-MM-DD"
-            const date = new Date(`${year}-${month}-${day}`);
+            // const date = new Date(`${year}-${month}-${day}`);
+            const date = parseDateString(ticket[3]);
 
             if (creditValue > 0) {
                 console.log(filtered)
@@ -756,7 +845,8 @@ function readFile(file) {
 
             // Construct a new Date object
             // Note: JavaScript's Date constructor expects the format "YYYY-MM-DD"
-            const date = new Date(`${year}-${month}-${day}`);
+            // const date = new Date(`${year}-${month}-${day}`);
+            const date = parseDateString(ticket[3]);
 
             filtered.push({
                 "folio": ticket[5],
@@ -1149,13 +1239,13 @@ form.addEventListener("submit", (event) => {
     console.log("Se quieren generar: ", totalTickets);
 
     if (first > last) {
-        throwErrorAlert("Lo sentimos", "El folio inicial no puede ser mayor al folio final");
+        throwErrorAlert("Lo sentimos", "El folio inicial no puede ser mayor al final");
 
         return
     };
     
     if (totalTickets > reportTotalTickets) {
-        throwErrorAlert("Lo sentimos", "La cantidad de tickets no puede ser mayor a los del reporte");
+        throwErrorAlert("Lo sentimos", "El reporte no contiene tantos tickets para imprimir");
 
         return
     };
@@ -1188,7 +1278,7 @@ form.addEventListener("submit", (event) => {
 
     if (finalTicketList.length < numberOfTickets) {
         throwErrorAlert("No se pueden generar los tickets",
-                "El monto a cubrir es muy bajo");
+                "Aumente el monto a cubrir para obtener la cantidad de tickets ingresados");
 
         return
     }
@@ -1196,7 +1286,7 @@ form.addEventListener("submit", (event) => {
     finalTicketList.sort((a,b) => {
         // Turn your strings into dates, and then subtract them
         // to get a value that is either negative, positive, or zero.
-        console.log(a.realDate);
+        console.log("SORTING REAL DATE: ", a.realDate, b.realDate);
         return a.realDate - b.realDate;
     });
 
