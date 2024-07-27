@@ -42,6 +42,121 @@ var formatter = new Intl.NumberFormat('en-US', {
     maximumFractionDigits: 2
 });
 
+const workerScript = `
+self.onmessage = function(event) {
+    console.log("El worker recibe: ", event.data);
+
+    data = event.data;
+
+    const result = unboundedKnapsackBetter(data.profit, data.weight, data.maxCapacity, data.maxItems);
+
+    self.postMessage(result);
+};
+
+
+function unboundedKnapsackBetter(profit, weight, maxCapacity, maxItems) {
+    const n = weight.length;
+
+    // Create a 2D array to store results of subproblems
+    // dp[i][j] will store the maximum value that can be achieved with at most i items and capacity j
+    const dp = new Array(maxItems + 1).fill(null).map(() => new Array(maxCapacity + 1).fill(0));
+
+    // Array to store selected items for each subproblem
+    const selectedItems = new Array(maxItems + 1).fill(null).map(() => new Array(maxCapacity + 1).fill([]));
+
+    // Build table dp[][] and selectedItems[][] in bottom up manner
+    for (let item = 1; item <= n; item++) {
+        for (let k = maxItems; k >= 1; k--) {
+            for (let w = maxCapacity; w >= weight[item - 1]; w--) {
+                // Check if including the current item gives a better profit
+                if (dp[k][w] < dp[k - 1][w - weight[item - 1]] + profit[item - 1]) {
+                    dp[k][w] = dp[k - 1][w - weight[item - 1]] + profit[item - 1];
+                    // Update selected items for dp[k][w] to include current item index
+                    selectedItems[k][w] = [...selectedItems[k - 1][w - weight[item - 1]], item - 1];
+                }
+            }
+        }
+    }
+
+    // console.log("Selected items:", selectedItems[maxItems][maxCapacity]);
+    // 
+    // let items = selectedItems[maxItems][maxCapacity].map(index => index + 1);
+
+    // console.log("Selected items:", items);
+
+    // Return the maximum value that can be achieved with maxItems items and capacity 'maxCapacity'
+    return {
+        maxValue: dp[maxItems][maxCapacity],
+        selectedItems: selectedItems[maxItems][maxCapacity]
+    }
+}
+`
+
+const blob = new Blob([workerScript], { type: 'application/javascript' });
+const workerUrl = URL.createObjectURL(blob);
+
+// Create a new Web Worker instance using the Blob URL
+const worker = new Worker(workerUrl);
+
+// Set up an event listener to handle messages from the worker
+worker.onmessage = function(event) {
+    console.log('Message from worker:', event.data);
+
+    document.getElementById("tickets").hidden = false;
+    document.getElementById("spinner").hidden = true;
+
+    let calcResult = doSomething(event.data);
+
+    finalTicketList =  finalTicketList.concat(calcResult.finalTicket);
+
+    console.log("TOTALES: ", finalTicketList, finalTicketList.length, totalTickets, numberOfTickets);
+
+    if (finalTicketList.length < numberOfTickets) {
+        throwErrorAlert("No se pueden generar los tickets",
+                "Aumente el monto a cubrir para obtener la cantidad de tickets ingresados");
+
+        return
+    }
+
+    finalTicketList.sort((a,b) => {
+        // Turn your strings into dates, and then subtract them
+        // to get a value that is either negative, positive, or zero.
+        console.log("SORTING REAL DATE: ", a.realDate, b.realDate);
+        return a.realDate - b.realDate;
+    });
+
+    let currentFolio = parseFloat(first);
+    finalTicketList.forEach(ticket => {
+        ticket.folio = currentFolio;
+        currentFolio++;
+    });
+
+    console.info("TICKETS FINALES: ", finalTicketList, calcResult.totalValue);
+
+    // NOTE: Este error ocurre cuando los tickets generados no cubren la cantidad
+    // deseada
+    console.log("Al final hay: ", monto, calcResult.totalValue, totalValue);
+    if (
+        monto - (
+        (calcResult.totalValue ? calcResult.totalValue : 0) +
+        (totalValue ? totalValue : 0)
+        ) > 200) {
+        throwErrorAlert("test", "Aumente el número de tickets para cubrir el monto deseado.");
+
+        return null
+    }
+
+    fillTable(finalTicketList, calcResult.totalValue);
+    setTableTotal();
+
+    showPrintButton();
+};
+
+// Clean up the Blob URL after the worker is no longer needed
+worker.onterminate = function() {
+    URL.revokeObjectURL(workerUrl);
+};
+
 function ticket(folio, date, time, total, efectivo="0", credito="0", caja, cliente, cajero, products) {
     const renderedProducts = products.map(({name, number, price, total}) => {
         return `
@@ -419,6 +534,9 @@ function getLowestTicket() {
 
 
 function throwErrorAlert(title, text) {
+    document.getElementById("tickets").hidden = false;
+    document.getElementById("spinner").hidden = true;
+
     const errorsContainer = document.getElementById("errors");
 
     const errorHtml = `
@@ -1007,17 +1125,7 @@ function fillTable(data, final=0) {
     });
 }
 
-function calc(value, tValue, tWeight, tickets) {
-    console.log("data: ", value, tValue, tWeight);
-
-    const knapsackResult = unboundedKnapsackBetter(tValue,
-        tWeight,
-        parseFloat(Math.round(total)),
-        parseFloat(totalTickets)
-    );
-
-    let result = knapsackResult;
-
+function doSomething(result, isCredit = false) {
     console.log("Result: ", result);
 
     let totalValue = 0;
@@ -1056,14 +1164,37 @@ function calc(value, tValue, tWeight, tickets) {
     });
 
     return {finalTicket, totalValue};
+
+    // finalTicketList =  finalTicketList.concat(finalTicket);
+}
+
+function calc(value, tValue, tWeight, tickets) {
+    console.log("data: ", value, tValue, tWeight);
+
+    // const knapsackResult = unboundedKnapsackBetter(tValue,
+    //     tWeight,
+    //     parseFloat(Math.round(total)),
+    //     parseFloat(totalTickets)
+    // );
+
+    let workerData = {
+        profit: tValue,
+        weight: tWeight,
+        maxCapacity: parseFloat(Math.round(total)),
+        maxItems: parseFloat(totalTickets)
+    }
+
+    worker.postMessage(workerData);
+
+    return
 };
 
 function insertCredit(monto) {
     let test = creditTickets.map(ticket => Math.round(ticket.total));
 
-    console.log("CREDIT: ", test, creditTickets);
+    console.log("credit: ", test, creditTickets);
 
-    console.log("Calculating Credit Knapsack: ",
+    console.log("calculating credit knapsack: ",
         test,
         parseFloat(monto),
         parseFloat(totalTickets)
@@ -1078,11 +1209,11 @@ function insertCredit(monto) {
 
     let result = knapsackResult;
 
-    console.log("Credit Knapsack Result: ", result);
+    console.log("credit knapsack result: ", result);
 
     let usedCreditTickets = 0;
     let final = result.selectedItems.map(idx => {
-        console.log("Price: ", idx);
+        console.log("price: ", idx);
 
         let value = creditTickets[idx];
 
@@ -1104,23 +1235,6 @@ function insertCredit(monto) {
 
         myFolio += 1;
     });
-
-    // creditTickets.every(item => {
-    //     console.log(totalTickets);
-    //     if (totalTickets <= 0) return false;
-    //     console.log(totalValue, item.total, monto);
-    //     if (totalValue + item.total > monto) return false;
-
-    //     idk.push({...item, folio: myFolio, credit: true});
-    //     usedCreditTickets++;
-
-    //     myFolio += 1;
-    //     total -= item.total;
-    //     totalValue += item.total;
-    //     totalTickets--;
-
-    //     return true;
-    // });
 
     console.log("Estos son los tickets finales de credito: ",
         final,
@@ -1169,6 +1283,9 @@ document.getElementById("start").addEventListener('click', function(event) {
 document.getElementById("volver").addEventListener('click', function(event) {
     dataTable.column(2).footer().innerHTML = 'Total:';
 
+    document.getElementById("tickets").hidden = false;
+    document.getElementById("spinner").hidden = true;
+
     document.getElementById("errors").innerHTML = "";
 
     fileInput.value = "";
@@ -1208,6 +1325,9 @@ document.getElementById("volver").addEventListener('click', function(event) {
 
 const form = document.getElementById('form');
 form.addEventListener("submit", (event) => {
+    document.getElementById("tickets").hidden = true;
+    document.getElementById("spinner").hidden = false;
+
     canUseCashTickets = false;
     document.getElementById("errors").innerHTML = "";
 
@@ -1225,15 +1345,15 @@ form.addEventListener("submit", (event) => {
 
     const form = event.target;
 
-    let monto = form.elements["monto"].value;
-    let first = form.elements["inicial"].value;
-    let last = form.elements["final"].value;
+    window.monto = form.elements["monto"].value;
+    window.first = form.elements["inicial"].value;
+    window.last = form.elements["final"].value;
 
     monto = Number(monto.replace(/[^0-9.-]+/g,""));
     monto =  Math.round(monto);
 
     window.myFolio = parseFloat(first);
-    const numberOfTickets = last - first + 1;
+    window.numberOfTickets = last - first + 1;
     window.totalTickets = numberOfTickets;
 
     console.log("Se quieren generar: ", totalTickets);
@@ -1264,55 +1384,13 @@ form.addEventListener("submit", (event) => {
     }
 
     let calcResult = {};
+    console.log("YYYYYYYYYYYYYYYYYY  ", canUseCashTickets, result, totalTickets);
     if (canUseCashTickets) {
         if (result && totalTickets > 0) {
             console.log("CALCULANDO: ", total, totalTickets);
 
-            calcResult = calc(total, tValue, tWeight, totalTickets);
-
-        finalTicketList =  finalTicketList.concat(calcResult.finalTicket);
+            calc(total, tValue, tWeight, totalTickets);
+            
         }
     }
-
-    console.log("TOTALES: ", finalTicketList, finalTicketList.length, totalTickets, numberOfTickets);
-
-    if (finalTicketList.length < numberOfTickets) {
-        throwErrorAlert("No se pueden generar los tickets",
-                "Aumente el monto a cubrir para obtener la cantidad de tickets ingresados");
-
-        return
-    }
-
-    finalTicketList.sort((a,b) => {
-        // Turn your strings into dates, and then subtract them
-        // to get a value that is either negative, positive, or zero.
-        console.log("SORTING REAL DATE: ", a.realDate, b.realDate);
-        return a.realDate - b.realDate;
-    });
-
-    let currentFolio = parseFloat(first);
-    finalTicketList.forEach(ticket => {
-        ticket.folio = currentFolio;
-        currentFolio++;
-    });
-
-    console.info("TICKETS FINALES: ", finalTicketList, calcResult.totalValue);
-
-    // NOTE: Este error ocurre cuando los tickets generados no cubren la cantidad
-    // deseada
-    console.log("Al final hay: ", monto, calcResult.totalValue, totalValue);
-    if (
-        monto - (
-        (calcResult.totalValue ? calcResult.totalValue : 0) +
-        (totalValue ? totalValue : 0)
-        ) > 200) {
-        throwErrorAlert("test", "Aumente el número de tickets para cubrir el monto deseado.");
-
-        return null
-    }
-
-    fillTable(finalTicketList, calcResult.totalValue);
-    setTableTotal();
-
-    showPrintButton();
 });
