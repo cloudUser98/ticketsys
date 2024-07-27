@@ -59,7 +59,7 @@ function ticket(folio, date, time, total, efectivo="0", credito="0", caja, clien
     }).join("");
 
     const ticketTemplate = `
-    <div style="background-color:green;" class="ticket">
+    <div class="ticket">
         <div class="ticket-header">
             <div style="text-align:center;">
                 <img src="/logo.png" style="width:190px;height:auto;">
@@ -408,7 +408,7 @@ window.finalTicketList = [
 ]
 // */
 
-printTickets();
+// printTickets();
 
 
 function getLowestTicket() {
