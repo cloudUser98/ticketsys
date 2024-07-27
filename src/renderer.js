@@ -409,8 +409,8 @@ function printTickets() {
         <head>
             <script>
                 function printPage() {
-                    // window.print();
-                    // window.close();
+                    window.print();
+                    window.close();
                 }
             </script>
             <style>
@@ -1350,6 +1350,13 @@ form.addEventListener("submit", (event) => {
     window.last = form.elements["final"].value;
 
     monto = Number(monto.replace(/[^0-9.-]+/g,""));
+
+    if (monto > totalGeneral) {
+        throwErrorAlert("Lo sentimos", "El monto a cubrir no puede ser mayor a el monto total del reporte");
+
+        return
+    }
+
     monto =  Math.round(monto);
 
     window.myFolio = parseFloat(first);
@@ -1386,11 +1393,56 @@ form.addEventListener("submit", (event) => {
     let calcResult = {};
     console.log("YYYYYYYYYYYYYYYYYY  ", canUseCashTickets, result, totalTickets);
     if (canUseCashTickets) {
-        if (result && totalTickets > 0) {
-            console.log("CALCULANDO: ", total, totalTickets);
+        // if (result && totalTickets > 0) {
+        console.log("CALCULANDO: ", total, totalTickets);
 
-            calc(total, tValue, tWeight, totalTickets);
+        calc(total, tValue, tWeight, totalTickets);
             
+        // }
+    } else {
+        document.getElementById("tickets").hidden = false;
+        document.getElementById("spinner").hidden = true;
+
+        console.log("TOTALES: ", finalTicketList, finalTicketList.length, totalTickets, numberOfTickets);
+
+        if (finalTicketList.length < numberOfTickets) {
+            throwErrorAlert("No se pueden generar los tickets",
+                "Aumente el monto a cubrir para obtener la cantidad de tickets ingresados");
+
+            return
         }
+
+        finalTicketList.sort((a,b) => {
+            // Turn your strings into dates, and then subtract them
+            // to get a value that is either negative, positive, or zero.
+                console.log("SORTING REAL DATE: ", a.realDate, b.realDate);
+            return a.realDate - b.realDate;
+        });
+
+        let currentFolio = parseFloat(first);
+        finalTicketList.forEach(ticket => {
+            ticket.folio = currentFolio;
+            currentFolio++;
+        });
+
+        console.info("TICKETS FINALES: ", finalTicketList, calcResult.totalValue);
+
+        // NOTE: Este error ocurre cuando los tickets generados no cubren la cantidad
+        // deseada
+        console.log("Al final hay: ", monto, calcResult.totalValue, totalValue);
+        if (
+            monto - (
+                (calcResult.totalValue ? calcResult.totalValue : 0) +
+                (totalValue ? totalValue : 0)
+            ) > 200) {
+            throwErrorAlert("test", "Aumente el número de tickets para cubrir el monto deseado.");
+
+            return null
+        }
+
+        fillTable(finalTicketList);
+        setTableTotal();
+
+        showPrintButton();
     }
 });
