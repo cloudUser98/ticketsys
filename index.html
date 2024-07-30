@@ -22,6 +22,8 @@
 
                 <h1 class="font-bold text-4xl text-center">Sistema de Impresión de Tickets</h1>
 
+                <div id="error-archivo" class="mb-2 mt-2 text-red-500"></div>
+
                 <div class="text-center mt-5">*Selecciona un reporte de ventas</div>
 
                 <div class="flex justify-center mt-2">
@@ -40,7 +42,6 @@
                     </div>
                 </div>
 
-                <div id="error-archivo" class="text-red-500"></div>
 
                 <div id="start" class="mt-4 text-center" hidden>
                     <button type="submit" class="appearance-none bg-indigo-900 text-white border border-gray-200 rounded py-2 px-6 leading-tight focus:outline-none focus:border-gray-500" id="grid-city">Ver resumen del reporte</button>
@@ -95,10 +96,10 @@
                                     <input id="inicial" name="inicial" type="text" class="transition-all h-10 border mt-1 rounded px-4 bg-gray-50" placeholder="" value="" required />
                                 </div>
 
-                                <div class="flex flex-col">
+                                <!-- <div class="flex flex-col">
                                     <label for="zipcode">Ticket Final</label>
-                                    <input id="final" name="final" type="text" class="transition-all h-10 border mt-1 rounded px-4 bg-gray-50" placeholder="" value="" required />
-                                </div>
+                                    <input disabled id="final" name="final" type="text" class="transition-all h-10 border mt-1 rounded px-4 bg-gray-50" placeholder="" value="" required />
+                                </div> -->
 
                                 <div class="flex-2">
                                     <button type="submit" class="min-w-52 appearance-none bg-indigo-900 text-white border border-gray-200 rounded py-2 px-6 leading-tight focus:outline-none focus:border-gray-500" id="grid-city">Generar tickets</button>

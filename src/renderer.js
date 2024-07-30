@@ -53,43 +53,69 @@ self.onmessage = function(event) {
     self.postMessage(result);
 };
 
+function unboundedKnapsackBetter(wt, val, W) {
+    const n = wt.length;
 
-function unboundedKnapsackBetter(profit, weight, maxCapacity, maxItems) {
-    const n = weight.length;
+    // Making and initializing dp array
+    var dp = Array(W + 1).fill(0);
+    var selected = Array(W + 1).fill(null).map(() => []);
 
-    // Create a 2D array to store results of subproblems
-    // dp[i][j] will store the maximum value that can be achieved with at most i items and capacity j
-    const dp = new Array(maxItems + 1).fill(null).map(() => new Array(maxCapacity + 1).fill(0));
-
-    // Array to store selected items for each subproblem
-    const selectedItems = new Array(maxItems + 1).fill(null).map(() => new Array(maxCapacity + 1).fill([]));
-
-    // Build table dp[][] and selectedItems[][] in bottom up manner
-    for (let item = 1; item <= n; item++) {
-        for (let k = maxItems; k >= 1; k--) {
-            for (let w = maxCapacity; w >= weight[item - 1]; w--) {
-                // Check if including the current item gives a better profit
-                if (dp[k][w] < dp[k - 1][w - weight[item - 1]] + profit[item - 1]) {
-                    dp[k][w] = dp[k - 1][w - weight[item - 1]] + profit[item - 1];
-                    // Update selected items for dp[k][w] to include current item index
-                    selectedItems[k][w] = [...selectedItems[k - 1][w - weight[item - 1]], item - 1];
+    for (let i = 1; i < n + 1; i++) {
+        for (let w = W; w >= 0; w--) {
+            if (wt[i - 1] <= w) {
+                let newValue = dp[w - wt[i - 1]] + val[i - 1];
+                if (newValue > dp[w]) {
+                    dp[w] = newValue;
+                    selected[w] = [...selected[w - wt[i - 1]], i - 1];
                 }
             }
         }
     }
 
-    // console.log("Selected items:", selectedItems[maxItems][maxCapacity]);
-    // 
-    // let items = selectedItems[maxItems][maxCapacity].map(index => index + 1);
-
-    // console.log("Selected items:", items);
-
-    // Return the maximum value that can be achieved with maxItems items and capacity 'maxCapacity'
+    // Returning the maximum value and the list of selected indexes
     return {
-        maxValue: dp[maxItems][maxCapacity],
-        selectedItems: selectedItems[maxItems][maxCapacity]
-    }
+        maxValue: dp[W],
+        selectedItems: selected[W]
+    };
 }
+
+
+// function unboundedKnapsackBetter(profit, weight, maxCapacity, maxItems) {
+//     const n = weight.length;
+// 
+//     // Create a 2D array to store results of subproblems
+//     // dp[i][j] will store the maximum value that can be achieved with at most i items and capacity j
+//     const dp = new Array(maxItems + 1).fill(null).map(() => new Array(maxCapacity + 1).fill(0));
+// 
+//     // Array to store selected items for each subproblem
+//     const selectedItems = new Array(maxItems + 1).fill(null).map(() => new Array(maxCapacity + 1).fill([]));
+// 
+//     // Build table dp[][] and selectedItems[][] in bottom up manner
+//     for (let item = 1; item <= n; item++) {
+//         for (let k = maxItems; k >= 1; k--) {
+//             for (let w = maxCapacity; w >= weight[item - 1]; w--) {
+//                 // Check if including the current item gives a better profit
+//                 if (dp[k][w] < dp[k - 1][w - weight[item - 1]] + profit[item - 1]) {
+//                     dp[k][w] = dp[k - 1][w - weight[item - 1]] + profit[item - 1];
+//                     // Update selected items for dp[k][w] to include current item index
+//                     selectedItems[k][w] = [...selectedItems[k - 1][w - weight[item - 1]], item - 1];
+//                 }
+//             }
+//         }
+//     }
+// 
+//     // console.log("Selected items:", selectedItems[maxItems][maxCapacity]);
+//     // 
+//     // let items = selectedItems[maxItems][maxCapacity].map(index => index + 1);
+// 
+//     // console.log("Selected items:", items);
+// 
+//     // Return the maximum value that can be achieved with maxItems items and capacity 'maxCapacity'
+//     return {
+//         maxValue: dp[maxItems][maxCapacity],
+//         selectedItems: selectedItems[maxItems][maxCapacity]
+//     }
+// }
 `
 
 const blob = new Blob([workerScript], { type: 'application/javascript' });
@@ -109,14 +135,14 @@ worker.onmessage = function(event) {
 
     finalTicketList =  finalTicketList.concat(calcResult.finalTicket);
 
-    console.log("TOTALES: ", finalTicketList, finalTicketList.length, totalTickets, numberOfTickets);
+    // console.log("TOTALES: ", finalTicketList, finalTicketList.length, totalTickets, numberOfTickets);
 
-    if (finalTicketList.length < numberOfTickets) {
-        throwErrorAlert("No se pueden generar los tickets",
-                "Aumente el monto a cubrir para obtener la cantidad de tickets ingresados");
+    // if (finalTicketList.length < numberOfTickets) {
+    //     throwErrorAlert("No se pueden generar los tickets",
+    //             "Aumente el monto a cubrir para obtener la cantidad de tickets ingresados");
 
-        return
-    }
+    //     return
+    // }
 
     finalTicketList.sort((a,b) => {
         // Turn your strings into dates, and then subtract them
@@ -136,15 +162,15 @@ worker.onmessage = function(event) {
     // NOTE: Este error ocurre cuando los tickets generados no cubren la cantidad
     // deseada
     console.log("Al final hay: ", monto, calcResult.totalValue, totalValue);
-    if (
-        monto - (
-        (calcResult.totalValue ? calcResult.totalValue : 0) +
-        (totalValue ? totalValue : 0)
-        ) > 200) {
-        throwErrorAlert("test", "Aumente el número de tickets para cubrir el monto deseado.");
+    // if (
+    //     monto - (
+    //     (calcResult.totalValue ? calcResult.totalValue : 0) +
+    //     (totalValue ? totalValue : 0)
+    //     ) > 200) {
+    //     throwErrorAlert("test", "Aumente el número de tickets para cubrir el monto deseado.");
 
-        return null
-    }
+    //     return null
+    // }
 
     fillTable(finalTicketList, calcResult.totalValue);
     setTableTotal();
@@ -157,7 +183,7 @@ worker.onterminate = function() {
     URL.revokeObjectURL(workerUrl);
 };
 
-function ticket(folio, date, time, total, efectivo="0", credito="0", caja, cliente, cajero, products) {
+function ticket(folio, date, time, total, efectivo="0", credito="0", transferencia="0", caja, cliente, cajero, products) {
     const renderedProducts = products.map(({name, number, price, total}) => {
         return `
         <div class="font" style="white-space:nowrap;overflow:hidden;">${name}</div>
@@ -228,7 +254,7 @@ function ticket(folio, date, time, total, efectivo="0", credito="0", caja, clien
                 </div>
                 <div class="font flex">
                     <div style="min-width:9.44em;text-align:end;">TRANSFERENCIA:</div>
-                    <div style="flex-grow: 1; word-break:break-word;white-space:pre-wrap;text-align:end;">0.00</div>
+                    <div style="flex-grow: 1; word-break:break-word;white-space:pre-wrap;text-align:end;">${transferencia}</div>
                 </div>
                 <div class="font flex">
                     <div style="min-width:9.44em;text-align:end;">TARJETA:</div>
@@ -353,6 +379,7 @@ function printTickets() {
             total,
             efectivo,
             credito,
+            transferencia,
             caja,
             cliente,
             cajero,
@@ -379,6 +406,7 @@ function printTickets() {
 
         efectivo ? efectivo = efectivo : efectivo = 0;
         credito ? credito = credito : credito = 0;
+        transferencia ? transferencia = transferencia : transferencia = 0;
 
         if (total !== undefined || total === 0) {
             // total = parseFloat(total);
@@ -395,7 +423,12 @@ function printTickets() {
             credito = formatter.format(credito);
         }
 
-        return ticket(folio, date, time, total, efectivo, credito, caja, cliente, cajero, correctFormattedTickets)
+        if (transferencia !== undefined || transferencia === 0) {
+            // credito = parseFloat(credito);
+            transferencia = formatter.format(transferencia);
+        }
+
+        return ticket(folio, date, time, total, efectivo, credito, transferencia, caja, cliente, cajero, correctFormattedTickets)
     });
 
     console.log("HTML TICKETS: ", renderedTickets);
@@ -538,6 +571,25 @@ function throwErrorAlert(title, text) {
     document.getElementById("spinner").hidden = true;
 
     const errorsContainer = document.getElementById("errors");
+
+    const errorHtml = `
+    <div class="flex items-center p-4 mb-4 text-sm text-red-800 border border-red-300 rounded-lg bg-red-50" role="alert">
+      <svg class="flex-shrink-0 inline w-4 h-4 me-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M10 .5a9.5 9.5 0 1 0 9.5 9.5A9.51 9.51 0 0 0 10 .5ZM9.5 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM12 15H8a1 1 0 0 1 0-2h1v-3H8a1 1 0 0 1 0-2h2a1 1 0 0 1 1 1v4h1a1 1 0 0 1 0 2Z"/>
+      </svg>
+      <span class="sr-only">Info</span>
+      <div>
+        ${text}
+      </div>
+    </div>
+    `
+
+    errorsContainer.innerHTML = errorHtml;
+}
+
+
+function initThrowErrorAlert(title, text) {
+    const errorsContainer = document.getElementById("error-archivo");
 
     const errorHtml = `
     <div class="flex items-center p-4 mb-4 text-sm text-red-800 border border-red-300 rounded-lg bg-red-50" role="alert">
@@ -697,7 +749,7 @@ function respectCurrencyFormat(event) {
 
 document.getElementById("monto").addEventListener("blur", respectCurrencyFormat);
 document.getElementById("inicial").addEventListener("keyup", enforceMinMax);
-document.getElementById("final").addEventListener("keyup", enforceMinMax);
+// document.getElementById("final").addEventListener("keyup", enforceMinMax);
 
 function setValue() {
     let valueInput = document.getElementById("input-group-1");
@@ -766,138 +818,228 @@ function getValues(t, val, min) {
     return {maxValue, selectedItems}
 }
 
-function unboundedKnapsackBetter(profit, weight, maxCapacity, maxItems) {
-    const n = weight.length;
 
-    // Create a 2D array to store results of subproblems
-    // dp[i][j] will store the maximum value that can be achieved with at most i items and capacity j
-    const dp = new Array(maxItems + 1).fill(null).map(() => new Array(maxCapacity + 1).fill(0));
+function unboundedKnapsackBetter(wt, val, W) {
+    const n = wt.length;
 
-    // Array to store selected items for each subproblem
-    const selectedItems = new Array(maxItems + 1).fill(null).map(() => new Array(maxCapacity + 1).fill([]));
+    // Making and initializing dp array
+    var dp = Array(W + 1).fill(0);
+    var selected = Array(W + 1).fill(null).map(() => []);
 
-    // Build table dp[][] and selectedItems[][] in bottom up manner
-    for (let item = 1; item <= n; item++) {
-        for (let k = maxItems; k >= 1; k--) {
-            for (let w = maxCapacity; w >= weight[item - 1]; w--) {
-                // Check if including the current item gives a better profit
-                if (dp[k][w] < dp[k - 1][w - weight[item - 1]] + profit[item - 1]) {
-                    dp[k][w] = dp[k - 1][w - weight[item - 1]] + profit[item - 1];
-                    // Update selected items for dp[k][w] to include current item index
-                    selectedItems[k][w] = [...selectedItems[k - 1][w - weight[item - 1]], item - 1];
+    for (let i = 1; i < n + 1; i++) {
+        for (let w = W; w >= 0; w--) {
+            if (wt[i - 1] <= w) {
+                let newValue = dp[w - wt[i - 1]] + val[i - 1];
+                if (newValue > dp[w]) {
+                    dp[w] = newValue;
+                    selected[w] = [...selected[w - wt[i - 1]], i - 1];
                 }
             }
         }
     }
 
-    // console.log("Selected items:", selectedItems[maxItems][maxCapacity]);
-    // 
-    // let items = selectedItems[maxItems][maxCapacity].map(index => index + 1);
-
-    // console.log("Selected items:", items);
-
-    // Return the maximum value that can be achieved with maxItems items and capacity 'maxCapacity'
+    // Returning the maximum value and the list of selected indexes
     return {
-        maxValue: dp[maxItems][maxCapacity],
-        selectedItems: selectedItems[maxItems][maxCapacity]
-    }
+        maxValue: dp[W],
+        selectedItems: selected[W]
+    };
 }
 
+
 function readFile(file) {
-    const CASH = 32;
-    const CARD = 37;
-    const DEPOSIT = 35;
+    try {
+        const CASH = 32;
+        const CARD = 37;
+        const DEPOSIT = 35;
 
-    const CAJA = 12;
-    const CLIENTE = 7;
-    const CAJERO = 17;
+        const CAJA = 12;
+        const CLIENTE = 7;
+        const CAJERO = 17;
 
-    const workbook = read(file);
+        const workbook = read(file);
 
-    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
 
-    const json = utils.sheet_to_json(worksheet, {header: 1, raw: false});
+        const json = utils.sheet_to_json(worksheet, {header: 1, raw: false});
 
-    console.log("Informacion del reporte: ", json);
+        console.log("Informacion del reporte: ", json);
 
-    let totalGeneralRow = json.filter(row => row[11] === "Total General:")[0];
+        let totalGeneralRow = json.filter(row => row[11] === "Total General:")[0];
 
-    console.log("TOTAL GENERAL ROW: ", totalGeneralRow);
+        console.log("TOTAL GENERAL ROW: ", totalGeneralRow);
 
-    let fromrow = totalGeneralRow[21];
+        let fromrow = totalGeneralRow[21];
 
-    if (typeof fromrow === "string") {
-        fromrow = parseFloat(fromrow.replace(/[^\d.]/g, ''));
-    }
+        if (typeof fromrow === "string") {
+            fromrow = parseFloat(fromrow.replace(/[^\d.]/g, ''));
+        }
 
-    window.totalGeneral = fromrow;
+        window.totalGeneral = fromrow;
 
-    let pzs = json.filter(value => value[0] === "PZA");
-    let tickets = json.filter(value => value[0] === "Ticket");
+        let pzs = json.filter(value => value[0] === "PZA");
+        let tickets = json.filter(value => value[0] === "Ticket");
 
-    window.reportTotalTickets = tickets.length;
-    console.log("Total de tickets en el reporte: ", reportTotalTickets);
+        window.reportTotalTickets = tickets.length;
+        console.log("Total de tickets en el reporte: ", reportTotalTickets);
 
-    console.log("Tickets: ", tickets);
+        console.log("Tickets: ", tickets);
 
-    window.creditTickets = json.reduce((filtered, ticket, idx) => {
-        if (ticket[37]) {
-            let credit = ticket[37];
-            if (typeof ticket[37] === "string") {
-                credit = parseFloat(credit.replace(/[^\d.]/g, ''));
-            }
+        window.creditTickets = json.reduce((filtered, ticket, idx) => {
+            if (ticket[37] || ticket[35]) {
+                let mainIndex = 37;
 
-            console.log("TICKET DE CREDITO CON ID ", idx);
-            console.log("Tiene credito", credit);
-            let products = []
-            for (let i = idx + 1; i < json.length; i++) {
-                if (json[i][0] === "Ticket") {
-                    console.log(true);
-                    break;
+                let credit = ticket[37];
+                let trans = ticket[35];
+
+                if (typeof ticket[37] === "string") {
+                    credit = parseFloat(credit.replace(/[^\d.]/g, ''));
                 }
 
-                if (json[i][0] === "PZA") {
-                    let value = json[i][19];
-                    if (typeof value === "string") {
-                        value = parseFloat(value.replace(/[^\d.]/g, ''));
+                if (typeof ticket[35] === "string") {
+                    trans = parseFloat(trans.replace(/[^\d.]/g, ''));
+                }
+
+                if (credit !== 0) {
+                } else {
+                    console.log("TENEMOS UNO DE TRANSFERENCIA con: ", trans, credit);
+                    mainIndex = 35;
+                }
+
+                console.log("TICKET DE CREDITO CON ID ", idx);
+                console.log("Tiene credito", credit);
+                let products = []
+                for (let i = idx + 1; i < json.length; i++) {
+                    if (json[i][0] === "Ticket") {
+                        console.log(true);
+                        break;
                     }
 
-                    let qt = json[i][1];
-                    if (typeof qt === "string") {
-                        qt = parseFloat(qt);
+                    if (json[i][0] === "PZA") {
+                        let value = json[i][19];
+                        if (typeof value === "string") {
+                            value = parseFloat(value.replace(/[^\d.]/g, ''));
+                        }
+
+                        let qt = json[i][1];
+                        if (typeof qt === "string") {
+                            qt = parseFloat(qt);
+                        }
+
+                        let total = json[i][27];
+                        if (typeof total === "string") {
+                            total = parseFloat(total.replace(/[^\d.]/g, ''));
+                        }
+
+                        const regex = /\[.*?\]/g;
+                        const name = json[i][4].replace(regex, '').trim();
+
+                        products.push({
+                            name: name,
+                            number: qt,
+                            price: value,
+                            total: total,
+                        })
                     }
+                }
 
-                    let total = json[i][27];
-                    if (typeof total === "string") {
-                        total = parseFloat(total.replace(/[^\d.]/g, ''));
+                let creditValue = ticket[mainIndex];
+                if (typeof creditValue === "string") {
+                    creditValue = parseFloat(creditValue.replace(/[^\d.]/g, ''));
+                }
+
+                const [day, month, year] = ticket[3].split('/');
+
+                // Construct a new Date object
+                // Note: JavaScript's Date constructor expects the format "YYYY-MM-DD"
+                // const date = new Date(`${year}-${month}-${day}`);
+                const date = parseDateString(ticket[3]);
+
+                if (creditValue > 0) {
+                    if (mainIndex === 35) {
+                        filtered.push({
+                            "folio": ticket[5],
+                            caja: ticket[CAJA],
+                            cliente: ticket[CLIENTE],
+                            cajero: ticket[CAJERO],
+                            realDate: date,
+                            date: ticket[3],
+                            "total": creditValue,
+                            transferencia: creditValue,
+                            products,
+                        })
+                    } else {
+                        console.log(filtered)
+                        filtered.push({
+                            "folio": ticket[5],
+                            caja: ticket[CAJA],
+                            cliente: ticket[CLIENTE],
+                            cajero: ticket[CAJERO],
+                            realDate: date,
+                            date: ticket[3],
+                            "total": creditValue,
+                            credito: creditValue,
+                            products,
+                        })
                     }
-
-                    const regex = /\[.*?\]/g;
-                    const name = json[i][4].replace(regex, '').trim();
-
-                    products.push({
-                        name: name,
-                        number: qt,
-                        price: value,
-                        total: total,
-                    })
                 }
             }
 
-            let creditValue = ticket[37];
-            if (typeof creditValue === "string") {
-                creditValue = parseFloat(creditValue.replace(/[^\d.]/g, ''));
-            }
+            return filtered
+        }, []);
+        
+        console.log("TICKETS DE TRANSFERENCIA y CREDITO: ", creditTickets);
 
-            const [day, month, year] = ticket[3].split('/');
+        window.catalog = json.reduce((filtered, ticket, idx) => {
+            if (ticket[0] === "Ticket" && ( ticket[37] === undefined || ticket[37] === 0 || ticket[37] === "$ 0.00" )) {
 
-            // Construct a new Date object
-            // Note: JavaScript's Date constructor expects the format "YYYY-MM-DD"
-            // const date = new Date(`${year}-${month}-${day}`);
-            const date = parseDateString(ticket[3]);
+                let products = []
+                for (let i = idx + 1; i < json.length; i++) {
+                    if (json[i][0] === "Ticket") {
+                        console.log(true);
+                        break;
+                    }
 
-            if (creditValue > 0) {
-                console.log(filtered)
+                    if (json[i][0] === "PZA") {
+                        let value = json[i][19];
+                        if (typeof value === "string") {
+                            value = parseFloat(value.replace(/[^\d.]/g, ''));
+                        }
+
+                        let qt = json[i][1];
+                        if (typeof qt === "string") {
+                            qt = parseFloat(qt);
+                        }
+
+                        let total = json[i][27];
+                        if (typeof total === "string") {
+                            total = parseFloat(total.replace(/[^\d.]/g, ''));
+                        }
+
+                        const regex = /\[.*?\]/g;
+                        const name = json[i][4].replace(regex, '').trim();
+
+                        products.push({
+                            name: name,
+                            number: qt,
+                            price: value,
+                            total: total,
+                        })
+                    }
+                }
+
+                let ticketTotal = ticket[30];
+                if (typeof ticket[30] === "string") {
+                    ticketTotal = parseFloat(ticketTotal.replace(/[^\d.]/g, ''));
+                }
+
+                console.log("AAAAAAAA FECHAS ---> ", ticket[3], ticket[3].replace(/\//g, "-"));
+                const [day, month, year] = ticket[3].split('/');
+
+                // Construct a new Date object
+                // Note: JavaScript's Date constructor expects the format "YYYY-MM-DD"
+                // const date = new Date(`${year}-${month}-${day}`);
+                const date = parseDateString(ticket[3]);
+
                 filtered.push({
                     "folio": ticket[5],
                     caja: ticket[CAJA],
@@ -905,177 +1047,115 @@ function readFile(file) {
                     cajero: ticket[CAJERO],
                     realDate: date,
                     date: ticket[3],
-                    "total": creditValue,
-                    credito: creditValue,
+                    total: ticketTotal,
+                    efectivo: ticketTotal,
                     products,
                 })
             }
-        }
 
-        return filtered
-    }, []);
+            return filtered
+        }, []);
 
-    window.catalog = json.reduce((filtered, ticket, idx) => {
-        if (ticket[0] === "Ticket" && ( ticket[37] === undefined || ticket[37] === 0 || ticket[37] === "$ 0.00" )) {
+        console.log("CATALODO DE TICKETS", creditTickets, catalog);
 
-            let products = []
-            for (let i = idx + 1; i < json.length; i++) {
-                if (json[i][0] === "Ticket") {
-                    console.log(true);
-                    break;
+        window.cash = 0;
+        window.card = 0;
+        window.deposit = 0;
+        for (let i = 0; i < tickets.length; i++) {
+            let ticket = tickets[i];
+
+            if (typeof ticket[CASH] === "string") {
+                window.cash += parseFloat(ticket[CASH].replace(/[^\d.]/g, ''));
+            } else {
+                window.cash += ticket[CASH];
+            }
+
+            if (typeof ticket[CARD] === "string") {
+                const lol = parseFloat(ticket[CARD].replace(/[^\d.]/g, ''));
+
+                if (lol) {
+                    window.card += lol;
                 }
-
-                if (json[i][0] === "PZA") {
-                    let value = json[i][19];
-                    if (typeof value === "string") {
-                        value = parseFloat(value.replace(/[^\d.]/g, ''));
-                    }
-
-                    let qt = json[i][1];
-                    if (typeof qt === "string") {
-                        qt = parseFloat(qt);
-                    }
-
-                    let total = json[i][27];
-                    if (typeof total === "string") {
-                        total = parseFloat(total.replace(/[^\d.]/g, ''));
-                    }
-
-                    const regex = /\[.*?\]/g;
-                    const name = json[i][4].replace(regex, '').trim();
-
-                    products.push({
-                        name: name,
-                        number: qt,
-                        price: value,
-                        total: total,
-                    })
+            } else {
+                if (ticket[CARD]) {
+                    window.card += ticket[CARD];
                 }
             }
 
-            let ticketTotal = ticket[30];
-            if (typeof ticket[30] === "string") {
-                ticketTotal = parseFloat(ticketTotal.replace(/[^\d.]/g, ''));
+            if (typeof ticket[DEPOSIT] === "string") {
+                window.deposit += parseFloat(ticket[DEPOSIT].replace(/[^\d.]/g, ''));
+            } else {
+                window.deposit += ticket[DEPOSIT];
             }
+        };
 
-            console.log("AAAAAAAA FECHAS ---> ", ticket[3], ticket[3].replace(/\//g, "-"));
-            const [day, month, year] = ticket[3].split('/');
+        document.getElementById("total-debit").innerHTML = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+        }).format(cash);
 
-            // Construct a new Date object
-            // Note: JavaScript's Date constructor expects the format "YYYY-MM-DD"
-            // const date = new Date(`${year}-${month}-${day}`);
-            const date = parseDateString(ticket[3]);
+        document.getElementById("total-credit").innerHTML = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+        }).format(card);
 
-            filtered.push({
-                "folio": ticket[5],
-                caja: ticket[CAJA],
-                cliente: ticket[CLIENTE],
-                cajero: ticket[CAJERO],
-                realDate: date,
-                date: ticket[3],
-                total: ticketTotal,
-                efectivo: ticketTotal,
-                products,
-            })
-        }
+        document.getElementById("total-t").innerHTML = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+        }).format(deposit);
 
-        return filtered
-    }, []);
+        document.getElementById("total-f").innerHTML = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+        }).format(totalGeneral);
 
-    console.log("CATALODO DE TICKETS", creditTickets, catalog);
+        // document.getElementById("total-credit").innerHTML = "$" + card;
+        // document.getElementById("total-t").innerHTML = "$" + deposit;
+        // document.getElementById("total-f").innerHTML = "$" + totalGeneral;
 
-    window.cash = 0;
-    window.card = 0;
-    window.deposit = 0;
-    for (let i = 0; i < tickets.length; i++) {
-        let ticket = tickets[i];
-
-        if (typeof ticket[CASH] === "string") {
-            window.cash += parseFloat(ticket[CASH].replace(/[^\d.]/g, ''));
-        } else {
-            window.cash += ticket[CASH];
-        }
-
-        if (typeof ticket[CARD] === "string") {
-            const lol = parseFloat(ticket[CARD].replace(/[^\d.]/g, ''));
-
-            if (lol) {
-                window.card += lol;
-            }
-        } else {
-            if (ticket[CARD]) {
-                window.card += ticket[CARD];
-            }
-        }
-
-        if (typeof ticket[DEPOSIT] === "string") {
-            window.deposit += parseFloat(ticket[DEPOSIT].replace(/[^\d.]/g, ''));
-        } else {
-            window.deposit += ticket[DEPOSIT];
-        }
-    };
-
-    document.getElementById("total-debit").innerHTML = new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-    }).format(cash);
-
-    document.getElementById("total-credit").innerHTML = new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-    }).format(card);
-
-    document.getElementById("total-t").innerHTML = new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-    }).format(deposit);
-
-    document.getElementById("total-f").innerHTML = new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-    }).format(totalGeneral);
-
-    // document.getElementById("total-credit").innerHTML = "$" + card;
-    // document.getElementById("total-t").innerHTML = "$" + deposit;
-    // document.getElementById("total-f").innerHTML = "$" + totalGeneral;
-
-    console.log("Totals: ", cash, card,  deposit);
+        console.log("Totals: ", cash, card,  deposit);
 
 
-    // window.catalog = tickets.map(pz => {
-    //     let value = pz[30];
-    //     if (typeof pz[30] === "string") {
-    //         value = parseFloat(value.replace(/[^\d.]/g, ''));
-    //     }
+        // window.catalog = tickets.map(pz => {
+        //     let value = pz[30];
+        //     if (typeof pz[30] === "string") {
+        //         value = parseFloat(value.replace(/[^\d.]/g, ''));
+        //     }
 
-    //     const folio = parseFloat(pz[1]);
+        //     const folio = parseFloat(pz[1]);
 
-    //     return {name: pz[5], price: value}
-    // });
+        //     return {name: pz[5], price: value}
+        // });
 
-    // let smt = [];
-    // for (let i = 0; i < catalog.length; i++) {
-    //     const isInCatalog = smt.findIndex(product => {
-    //         return product.name === catalog[i].name
-    //     });
+        // let smt = [];
+        // for (let i = 0; i < catalog.length; i++) {
+        //     const isInCatalog = smt.findIndex(product => {
+        //         return product.name === catalog[i].name
+        //     });
 
-    //     console.log(isInCatalog);
+        //     console.log(isInCatalog);
 
-    //     if (isInCatalog === -1) {
-    //         smt.push(catalog[i]);
-    //     }
-    // }
+        //     if (isInCatalog === -1) {
+        //         smt.push(catalog[i]);
+        //     }
+        // }
 
-    // catalog = smt;
+        // catalog = smt;
 
-    // console.table(catalog);
+        // console.table(catalog);
 
-    let test = catalog.map(ticket => Math.round(ticket.total));
+        let test = catalog.map(ticket => Math.round(ticket.total));
 
-    console.log("Weights: ", test);
+        console.log("Weights: ", test);
 
-    tValue = test;
-    tWeight = test;
+        tValue = test;
+        tWeight = test;
+
+        document.getElementById("error-archivo").innerHTML = "";
+        document.getElementById("start").hidden = false;
+    } catch (error) {
+        initThrowErrorAlert("test", "El reporte que deseas usar no cuenta con la estructura adecuada");
+    }
 }
 
 function fillTable(data, final=0) {
@@ -1105,7 +1185,7 @@ function fillTable(data, final=0) {
         row.node().setAttribute("id", item.folio);
 
         // Color the credit ticket background
-        if (item.credit) {
+        if (item.credit || item.trans) {
             row.node().style.backgroundColor = "rgba(14, 116, 144, 0.4)";
         }
 
@@ -1145,7 +1225,7 @@ function doSomething(result, isCredit = false) {
 
     shuffleArray(final);
 
-    console.log("El resultado es de ", final, " productos y ", totalTickets, "tickets");
+    // console.log("El resultado es de ", final, " productos y ", totalTickets, "tickets");
 
     console.log("Total de efectivo y general: ", totalValue, value);
 
@@ -1168,7 +1248,7 @@ function doSomething(result, isCredit = false) {
     // finalTicketList =  finalTicketList.concat(finalTicket);
 }
 
-function calc(value, tValue, tWeight, tickets) {
+function calc(value, tValue, tWeight) {
     console.log("data: ", value, tValue, tWeight);
 
     // const knapsackResult = unboundedKnapsackBetter(tValue,
@@ -1180,8 +1260,7 @@ function calc(value, tValue, tWeight, tickets) {
     let workerData = {
         profit: tValue,
         weight: tWeight,
-        maxCapacity: parseFloat(Math.round(total)),
-        maxItems: parseFloat(totalTickets)
+        maxCapacity: parseFloat(Math.round(value)),
     }
 
     worker.postMessage(workerData);
@@ -1196,15 +1275,13 @@ function insertCredit(monto) {
 
     console.log("calculating credit knapsack: ",
         test,
-        parseFloat(monto),
-        parseFloat(totalTickets)
+        parseFloat(monto)
     );
 
     const knapsackResult = unboundedKnapsackBetter(
         test,
         test,
-        parseFloat(Math.round(monto)),
-        parseFloat(totalTickets)
+        parseFloat(Math.round(monto))
     );
 
     let result = knapsackResult;
@@ -1217,16 +1294,24 @@ function insertCredit(monto) {
 
         let value = creditTickets[idx];
 
-        totalValue += value.total;
+        // totalValue += value.total;
 
         usedCreditTickets += 1;
-        totalTickets--;
+        // totalTickets--;
         total -= value.total;
 
-        return {
-            ...value,
-            credit: value.total,
-            folio: 1
+        if (Object.hasOwn(value, 'transferencia')) {
+            return {
+                ...value,
+                trans: value.total,
+                folio: 1
+            }
+        } else {
+            return {
+                ...value,
+                credit: value.total,
+                folio: 1
+            }
         }
     });
 
@@ -1264,8 +1349,6 @@ fileInput.addEventListener('change', async (event) => {
     const ui8a = new Uint8Array(ab);
 
     readFile(ui8a);
-
-    document.getElementById("start").hidden = false;
 });
 
 document.getElementById("start").addEventListener('click', function(event) {
@@ -1298,7 +1381,7 @@ document.getElementById("volver").addEventListener('click', function(event) {
 
     document.getElementById("monto").value = "";
     document.getElementById("inicial").value = "";
-    document.getElementById("final").value = "";
+    // document.getElementById("final").value = "";
 
     window.value = 0;
     window.tWeight = 0;
@@ -1346,10 +1429,19 @@ form.addEventListener("submit", (event) => {
     const form = event.target;
 
     window.monto = form.elements["monto"].value;
+
     window.first = form.elements["inicial"].value;
-    window.last = form.elements["final"].value;
+    window.myFolio = parseFloat(first);
 
     monto = Number(monto.replace(/[^0-9.-]+/g,""));
+
+    console.log("Se iniciara el flujo con:");
+    console.log("Monto a cubrir -> ", monto);
+    console.log("Ticket inicial -> ", first);
+
+    monto =  Math.round(monto);
+
+    window.total = monto;
 
     if (monto > totalGeneral) {
         throwErrorAlert("Lo sentimos", "El monto a cubrir no puede ser mayor a el monto total del reporte");
@@ -1357,31 +1449,9 @@ form.addEventListener("submit", (event) => {
         return
     }
 
-    monto =  Math.round(monto);
-
-    window.myFolio = parseFloat(first);
-    window.numberOfTickets = last - first + 1;
-    window.totalTickets = numberOfTickets;
-
-    console.log("Se quieren generar: ", totalTickets);
-
-    if (first > last) {
-        throwErrorAlert("Lo sentimos", "El folio inicial no puede ser mayor al final");
-
-        return
-    };
-    
-    if (totalTickets > reportTotalTickets) {
-        throwErrorAlert("Lo sentimos", "El reporte no contiene tantos tickets para imprimir");
-
-        return
-    };
-
-    window.total = monto + 200;
-
     let result = [];
     if (creditTickets.length > 0) {
-        result = insertCredit(parseFloat(monto) + 200);
+        result = insertCredit(monto);
 
         if (result) {
             finalTicketList = finalTicketList.concat(result);
@@ -1391,26 +1461,26 @@ form.addEventListener("submit", (event) => {
     }
 
     let calcResult = {};
-    console.log("YYYYYYYYYYYYYYYYYY  ", canUseCashTickets, result, totalTickets);
+    // console.log("YYYYYYYYYYYYYYYYYY  ", canUseCashTickets, result, totalTickets);
     if (canUseCashTickets) {
         // if (result && totalTickets > 0) {
-        console.log("CALCULANDO: ", total, totalTickets);
+        // console.log("CALCULANDO: ", total, totalTickets);
 
-        calc(total, tValue, tWeight, totalTickets);
+        calc(window.total, tValue, tWeight);
             
         // }
     } else {
         document.getElementById("tickets").hidden = false;
         document.getElementById("spinner").hidden = true;
 
-        console.log("TOTALES: ", finalTicketList, finalTicketList.length, totalTickets, numberOfTickets);
+        // console.log("TOTALES: ", finalTicketList, finalTicketList.length, totalTickets, numberOfTickets);
 
-        if (finalTicketList.length < numberOfTickets) {
-            throwErrorAlert("No se pueden generar los tickets",
-                "Aumente el monto a cubrir para obtener la cantidad de tickets ingresados");
+        // if (finalTicketList.length < numberOfTickets) {
+        //     throwErrorAlert("No se pueden generar los tickets",
+        //         "Aumente el monto a cubrir para obtener la cantidad de tickets ingresados");
 
-            return
-        }
+        //     return
+        // }
 
         finalTicketList.sort((a,b) => {
             // Turn your strings into dates, and then subtract them
@@ -1430,15 +1500,15 @@ form.addEventListener("submit", (event) => {
         // NOTE: Este error ocurre cuando los tickets generados no cubren la cantidad
         // deseada
         console.log("Al final hay: ", monto, calcResult.totalValue, totalValue);
-        if (
-            monto - (
-                (calcResult.totalValue ? calcResult.totalValue : 0) +
-                (totalValue ? totalValue : 0)
-            ) > 200) {
-            throwErrorAlert("test", "Aumente el número de tickets para cubrir el monto deseado.");
+        // if (
+        //     monto - (
+        //         (calcResult.totalValue ? calcResult.totalValue : 0) +
+        //         (totalValue ? totalValue : 0)
+        //     ) > 200) {
+        //     throwErrorAlert("test", "Aumente el número de tickets para cubrir el monto deseado.");
 
-            return null
-        }
+        //     return null
+        // }
 
         fillTable(finalTicketList);
         setTableTotal();
