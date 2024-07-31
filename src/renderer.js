@@ -148,7 +148,10 @@ worker.onmessage = function(event) {
         // Turn your strings into dates, and then subtract them
         // to get a value that is either negative, positive, or zero.
         console.log("SORTING REAL DATE: ", a.realDate, b.realDate);
-        return a.realDate - b.realDate;
+        console.log("-> ", a.realDate.localeCompare(b.realDate));
+
+        // return a.realDate - b.realDate;
+        return a.realDate.localeCompare(b.realDate)
     });
 
     let currentFolio = parseFloat(first);
@@ -291,82 +294,55 @@ function ticket(folio, date, time, total, efectivo="0", credito="0", transferenc
 
 
 function getDateString(dateString) {
-    console.log("GETTING DATE STRING: ", dateString);
+    // Step 1: Split the date and time parts
+    const [datePart, timePart] = dateString.split(' ');
 
-    // Define regex patterns for date and date-time formats
-    const datePattern = /^(\d{2})\/(\d{2})\/(\d{4})$/;
-    const dateTimePattern = /^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s+(AM|PM)$/;
+    // Step 2: Extract day, month, year
+    const [day, month, year] = datePart.split('/');
 
-    // Check if the dateString matches the date pattern
-    const dateMatch = dateString.match(datePattern);
-    if (dateMatch) {
-        // If it matches date pattern, return formatted date
-        const [, day, month, year] = dateMatch;
-        // const formattedDate = `${year}-${month}-${day}`;
-        // return formattedDate;
-        return {
-            date: `${day}/${month}/${year}`,
-            time: "00:00:00 AM"
-        }
-    }
+    // The date part is already in the correct format: dd/mm/yyyy
+    const formattedDate = `${day}/${month}/${year}`;
 
-    // Check if the dateString matches the date-time pattern
-    const dateTimeMatch = dateString.match(dateTimePattern);
-    if (dateTimeMatch) {
-        // If it matches date-time pattern, return formatted date and time
-        const [, day, month, year, hours, minutes, seconds, period] = dateTimeMatch;
-        const formattedDate = `${year}-${month}-${day}`;
-        const formattedTime = `${period === 'AM' ? hours : (parseInt(hours) + 12).toString().padStart(2, '0')}:${minutes}:${seconds} ${period}`;
-        // return `${formattedDate} ${formattedTime}`;
+    // Step 3: Extract hour, minute, second and convert to 12-hour format
+    let [hours, minutes, seconds] = timePart.split(':');
+    hours = parseInt(hours, 10);
+    const ampm = hours >= 12 ? 'PM' : 'AM';
 
-        return {
-            date: `${day}/${month}/${year}`,
-            time: formattedTime,
-        }
-    }
+    // Convert hours to 12-hour format
+    hours = hours % 12 || 12; // The hour '0' should be '12' in 12-hour format
 
-    // Return 'none' if the time is in the string but has the wrong format
-    return null
+    // Ensure hours, minutes, and seconds are two digits
+    // const formattedHours = String(hours).padStart(2, '0');
+    const formattedMinutes = String(minutes).padStart(2, '0');
+    const formattedSeconds = String(seconds).padStart(2, '0');
+    const formattedTime = `${hours}:${formattedMinutes}:${formattedSeconds} ${ampm}`;
+
+    return {
+        date: formattedDate,
+        time: formattedTime
+    };
 }
 
 
 function parseDateString(dateString) {
     console.log("parsing dateString: ", dateString);
 
-    // Regular expression to match the full date and time format
-    const fullDateTimePattern = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{1,2}):(\d{2}):(\d{2}) (AM|PM)$/;
-    // Regular expression to match only the date format (e.g., 25/09/5)
-    const dateOnlyPattern = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+    // Split the date and time parts
+    const [datePart, timePart] = dateString.split(' ');
 
-    // Check if the string matches the full date and time format
-    if (fullDateTimePattern.test(dateString)) {
-        let [_, day, month, year, hours, minutes, seconds, meridian] = dateString.match(fullDateTimePattern);
+    // Split the date into day, month, year
+    const [day, month, year] = datePart.split('/');
 
-        // Convert the time to 24-hour format if necessary
-        if (meridian === "PM" && hours !== "12") {
-            hours = parseInt(hours) + 12;
-        } else if (meridian === "AM" && hours === "12") {
-            hours = 0;
-        }
+    // Split the time into hours, minutes, seconds
+    const [hours, minutes, seconds] = timePart.split(':');
 
-        // Create and return the Date object (month is 0-indexed)
-        return new Date(year, month - 1, day, hours, minutes, seconds);
-    } else if (dateOnlyPattern.test(dateString)) {
-        // If the string matches only the date pattern, throw an error
-        let [_, day, month, year] = dateString.match(dateOnlyPattern);
+    // Create a Date object
+    // let date = new Date(`${year}-${month}-${day}T${timePart}`);
+    let date = `${year}-${month}-${day}T${timePart}Z`;
 
-        // Return a Date object with the time set to 12:00 AM
-        return new Date(year, month - 1, day, 0, 0, 0);
-    } else {
-        // If the string does not match the expected format, throw an error
-        try {
-            let [_, day, month, year] = dateString.match(dateOnlyPattern);
+    // date = date.toISOString();
 
-            return new Date(year, month - 1, day, 0, 0, 0);
-        } catch {
-            return new Date(0, 0, 0, 0, 0, 0, 0);
-        }
-    }
+    return date
 }
 
 
@@ -856,11 +832,22 @@ function readFile(file) {
         const CLIENTE = 7;
         const CAJERO = 17;
 
-        const workbook = read(file);
+        const workbook = read(file,
+            {
+                cellText:false, 
+                cellDates:true
+            }
+        );
 
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
 
-        const json = utils.sheet_to_json(worksheet, {header: 1, raw: false});
+        const json = utils.sheet_to_json(worksheet,
+            {
+                header: 1,
+                dateNF: 'dd/mm/yyyy hh:mm:ss',
+                raw: false
+            }
+        );
 
         console.log("Informacion del reporte: ", json);
 
@@ -885,7 +872,14 @@ function readFile(file) {
         console.log("Tickets: ", tickets);
 
         window.creditTickets = json.reduce((filtered, ticket, idx) => {
-            if (ticket[37] || ticket[35]) {
+            if (
+                ticket[0] === "Ticket" &&
+                (
+                    ( ticket[37] === undefined || ticket[37] === 0 || ticket[37] === "$ 0.00" ) ||
+                    ( ticket[35] === undefined || ticket[35] === 0 || ticket[35] === "$ 0.00" )
+                )
+            ) {
+            // if (ticket[0] === 'ticket' && (ticket[37] || ticket[35])) {
                 let mainIndex = 37;
 
                 let credit = ticket[37];
@@ -1032,7 +1026,7 @@ function readFile(file) {
                     ticketTotal = parseFloat(ticketTotal.replace(/[^\d.]/g, ''));
                 }
 
-                console.log("AAAAAAAA FECHAS ---> ", ticket[3], ticket[3].replace(/\//g, "-"));
+                // console.log("AAAAAAAA FECHAS ---> ", ticket[3], ticket[3].replace(/\//g, "-"));
                 const [day, month, year] = ticket[3].split('/');
 
                 // Construct a new Date object
@@ -1154,7 +1148,7 @@ function readFile(file) {
         document.getElementById("error-archivo").innerHTML = "";
         document.getElementById("start").hidden = false;
     } catch (error) {
-        initThrowErrorAlert("test", "El reporte que deseas usar no cuenta con la estructura adecuada");
+        initThrowErrorAlert("test", error + " El reporte que deseas usar no cuenta con la estructura adecuada");
     }
 }
 
@@ -1485,8 +1479,12 @@ form.addEventListener("submit", (event) => {
         finalTicketList.sort((a,b) => {
             // Turn your strings into dates, and then subtract them
             // to get a value that is either negative, positive, or zero.
-                console.log("SORTING REAL DATE: ", a.realDate, b.realDate);
-            return a.realDate - b.realDate;
+
+            console.log("SORTING REAL DATE: ", a.realDate, b.realDate);
+            console.log("-> ", a.realDate.localeCompare(b.realDate));
+
+            // return a.realDate - b.realDate;
+            return a.realDate.localeCompare(b.realDate)
         });
 
         let currentFolio = parseFloat(first);
