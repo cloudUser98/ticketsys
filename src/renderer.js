@@ -32,7 +32,8 @@ import 'datatables.net-dt/css/dataTables.dataTables.min.css';
 
 import 'htmx.org';
 import { read, writeXLSX, utils } from "xlsx";
-import DataTable from 'datatables.net-dt';
+// import DataTable from 'datatables.net-dt';
+import  DataTable from 'datatables.net-select';
 import Swal from 'sweetalert2'
 
 window.finalTicketList = [];
@@ -186,6 +187,96 @@ worker.onterminate = function() {
     URL.revokeObjectURL(workerUrl);
 };
 
+
+function selectTicket(ticketId) {
+    const ticket = finalTicketList[ticketId];
+    ticket.id = ticketId;
+
+    ticketsToPrint.push(ticket);
+
+    console.log("selected Tickets: ", ticketsToPrint);
+
+    let USDollar = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+    });
+
+    let total =  0;
+    let efectivo =  0;
+    let tarjeta =  0;
+    let transferencia =  0;
+
+    ticketsToPrint.forEach(ticket => {
+        total += ticket.total
+
+        if (ticket.efectivo) {
+            efectivo += ticket.efectivo;
+        }
+
+        if (ticket.credito) {
+            tarjeta += ticket.credito;
+        }
+
+        if (ticket.transferencia) {
+            transferencia += ticket.transferencia;
+        }
+    });
+
+    const eSt = `Efectivo: ${USDollar.format(efectivo.toFixed(2))}`;
+    const tSt = `Tarjeta: ${USDollar.format(tarjeta.toFixed(2))}`;
+    const rSt = `Transferencia: ${USDollar.format(transferencia.toFixed(2))}`;
+
+    dataTable.column(0).footer().innerHTML = eSt;
+    dataTable.column(1).footer().innerHTML = tSt;
+    dataTable.column(2).footer().innerHTML = rSt;
+    dataTable.column(3).footer().innerHTML = 'Tickets seleccionados: ' + ticketsToPrint.length + ' Total: ' + USDollar.format(total.toFixed(2));
+
+    return true
+}
+
+
+function unselectTicket(ticketId) {
+    ticketsToPrint = ticketsToPrint.filter(ticket => ticket.id !== ticketId);
+
+    let USDollar = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+    });
+
+    let total =  0;
+    let efectivo =  0;
+    let tarjeta =  0;
+    let transferencia =  0;
+
+    ticketsToPrint.forEach(ticket => {
+        total += ticket.total
+
+        if (ticket.efectivo) {
+            efectivo += ticket.efectivo;
+        }
+
+        if (ticket.credito) {
+            tarjeta += ticket.credito;
+        }
+
+        if (ticket.transferencia) {
+            transferencia += ticket.transferencia;
+        }
+    });
+
+    const eSt = `Efectivo: ${USDollar.format(efectivo.toFixed(2))}`;
+    const tSt = `Tarjeta: ${USDollar.format(tarjeta.toFixed(2))}`;
+    const rSt = `Transferencia: ${USDollar.format(transferencia.toFixed(2))}`;
+
+    dataTable.column(0).footer().innerHTML = eSt;
+    dataTable.column(1).footer().innerHTML = tSt;
+    dataTable.column(2).footer().innerHTML = rSt;
+    dataTable.column(3).footer().innerHTML = 'Tickets seleccionados: ' + ticketsToPrint.length + ' Total: ' + USDollar.format(total.toFixed(2));
+
+    return true
+}
+
+
 function ticket(folio, date, time, total, efectivo="0", credito="0", transferencia="0", caja, cliente, cajero, products) {
     const renderedProducts = products.map(({name, number, price, total}) => {
         return `
@@ -267,10 +358,10 @@ function ticket(folio, date, time, total, efectivo="0", credito="0", transferenc
                     <div style="min-width:9.44em;text-align:end;">CREDITO:</div>
                     <div style="flex-grow: 1; word-break:break-word;white-space:pre-wrap;text-align:end;">0.00</div>
                 </div>
-                <div class="font flex">
+                <!-- <div class="font flex">
                     <div style="min-width:9.44em;text-align:end;">CAMBIO:</div>
                     <div style="flex-grow: 1; word-break:break-word;white-space:pre-wrap;text-align:end;">0.00</div>
-                </div>
+                </div> -->
             </div>
             <br>
             <div class="font text-center">CAJA</div>
@@ -347,7 +438,7 @@ function parseDateString(dateString) {
 
 
 function printTickets() {
-    const renderedTickets = finalTicketList.map((
+    const renderedTickets = ticketsToPrint.map((
         {
             folio,
             date,
@@ -502,35 +593,6 @@ function printTickets() {
 
     pwa.document.close();
 }
-// /*
-window.finalTicketList = [
-    {
-        folio: 92384023984209348,
-        date: "7777/7777/7777",
-        time: "00:00:00 AM",
-        total: "2,116.00",
-        efectivo: "7,777.00",
-        credito: 7777777,
-        caja: "La caja de don cangrejo es la mejor",
-        cliente: "El unico que existe omegalul hay como me duele",
-        cajero: "El mero mero sabor taquero es lo que querias escuchar verdad",
-        products: [
-            {
-                number: 3,
-                total: "10,000",
-                price: "5,000",
-                name: "El producto mas perron de tossssssssssssda el area limitrofe",
-            },
-            {
-                number: 2,
-                total: 99999,
-                price: 99999,
-                name: "El producto mas perronsssssssde toda el area limitrofe",
-            }
-        ],
-    }
-]
-// */
 
 // printTickets();
 
@@ -582,52 +644,72 @@ function initThrowErrorAlert(title, text) {
     errorsContainer.innerHTML = errorHtml;
 }
 
-var dataTable = new DataTable('#tickets', {
+var dataTable;
+var ticketsToPrint = [];
+
+dataTable = new DataTable('#tickets', {
     columns: [
         {
-            className: 'dt-control',
             orderable: false,
-            defaultContent: ''
+            defaultContent: '',
+            className: 'select-checkbox',
+            render: function (data, type, full, meta) {
+                return '<input type="checkbox" class="select-row">';
+            }
         },
         null,
         null,
+        null,
     ],
-    order: [[1, 'asc']],
+    // order: [[1, 'asc']],
+    ordering: false,
     searching: false,
     paging: false,
+    scrollCollapse: true,
+    scrollY: '200px',
     sDom: '<"toolbar">frtip',
-    footerCallback: function(row, data, start, end, display) {
-        let api = this.api();
+    // select: {
+        //     style: 'os',
+        //     selector: 'td:first-child'
+        // },
+    // footerCallback: function(row, data, start, end, display) {
+        //     let api = this.api();
 
-        let USDollar = new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-        });
+        //     let USDollar = new Intl.NumberFormat('en-US', {
+            //         style: 'currency',
+            //         currency: 'USD',
+            //     });
 
-        const total = api
-            .column(2)
-            .data()
-            .reduce((a, b) => {
-                return a + Number(b.replace(/[^0-9.-]+/g,""))
-            }, 0);
+        //     const total = api
+        //         .column(4)
+        //         .data()
+        //         .reduce((a, b) => {
+            //             return a + Number(b.replace(/[^0-9.-]+/g,""))
+            //         }, 0);
 
-        api.column(2).footer().innerHTML = 'Total: ' + USDollar.format(total.toFixed(2));
-    },
+        //     api.column(4).footer().innerHTML = 'Total: ' + USDollar.format(total.toFixed(2));
+        // },
 });
 
-document.querySelector("div.toolbar").innerHTML = `
-    <div id="print-button" hidden>
-    <button class="flex items-center appearance-none bg-indigo-900 text-white border border-gray-200 rounded py-2 px-6 leading-tight focus:outline-none focus:border-gray-500" id="grid-city">
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-printer-fill me-2" viewBox="0 0 16 16">
-    <path d="M5 1a2 2 0 0 0-2 2v1h10V3a2 2 0 0 0-2-2zm6 8H5a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1"/>
-    <path d="M0 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-1v-2a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2H2a2 2 0 0 1-2-2zm2.5 1a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1"/>
-    </svg>
-    Imprimir Tickets</button>
-    </div>
-    `;
 
-document.getElementById("print-button").addEventListener("click", () => {
-    printTickets();
+document.addEventListener("DOMContentLoaded", function(event) {
+    dataTable.on('click', 'td.dt-control', function (e) {
+        let tr = e.target.closest('tr');
+        let row = dataTable.row(tr);
+
+        if (row.child.isShown()) {
+            // This row is already open - close it
+            row.child.hide();
+        }
+        else {
+            // Open this row
+            const rowId = row.data()[1];
+            
+            console.log(row.data(), rowId, finalTicketList.find(value => value.folio === rowId));
+
+            row.child(format(finalTicketList.find(value => value.folio === rowId).products)).show();
+        }
+    });
 });
 
 
@@ -635,24 +717,6 @@ function showPrintButton() {
     document.getElementById("print-button").hidden = false;
 }
 
-
-dataTable.on('click', 'td.dt-control', function (e) {
-    let tr = e.target.closest('tr');
-    let row = dataTable.row(tr);
-
-    if (row.child.isShown()) {
-        // This row is already open - close it
-        row.child.hide();
-    }
-    else {
-        // Open this row
-        const rowId = row.data()[1];
-        
-        console.log(row.data(), rowId, finalTicketList.find(value => value.folio === rowId));
-
-        row.child(format(finalTicketList.find(value => value.folio === rowId).products)).show();
-    }
-});
 
 // dataTable.column(0).orderable(false);
 
@@ -871,6 +935,24 @@ function readFile(file) {
 
         console.log("Tickets: ", tickets);
 
+        // NOTE: Checking if one ticket has multiple payment types
+        tickets.forEach(ticket => {
+            const data = ticket.slice(32, 39);
+
+            console.warn("my ticket slice: ", data);
+
+            let valueCount = 0;
+            data.forEach(value => {
+                if (valueCount > 1) {
+                    throw new Error("HAY NANITA");
+                }
+
+                if (!(value === undefined || value === 0 || value === "$ 0.00" )) {
+                    valueCount = valueCount + 1;
+                };
+            });
+        });
+
         window.creditTickets = json.reduce((filtered, ticket, idx) => {
             if (
                 ticket[0] === "Ticket" &&
@@ -984,7 +1066,7 @@ function readFile(file) {
         console.log("TICKETS DE TRANSFERENCIA y CREDITO: ", creditTickets);
 
         window.catalog = json.reduce((filtered, ticket, idx) => {
-            if (ticket[0] === "Ticket" && ( ticket[37] === undefined || ticket[37] === 0 || ticket[37] === "$ 0.00" )) {
+            if (ticket[0] === "Ticket" && !(ticket[32] === undefined || ticket[32] === 0 || ticket[32] === "$ 0.00" )) {
 
                 let products = []
                 for (let i = idx + 1; i < json.length; i++) {
@@ -1052,6 +1134,10 @@ function readFile(file) {
 
         console.log("CATALODO DE TICKETS", creditTickets, catalog);
 
+        if (creditTickets.length === 0 && catalog.length === 0) {
+            initThrowErrorAlert("El reporte no contiene ningún ticket");
+        }
+
         window.cash = 0;
         window.card = 0;
         window.deposit = 0;
@@ -1083,6 +1169,8 @@ function readFile(file) {
             }
         };
 
+        const totalF = parseFloat(cash) + parseFloat(card) + parseFloat(deposit);
+
         document.getElementById("total-debit").innerHTML = new Intl.NumberFormat('en-US', {
             style: 'currency',
             currency: 'USD',
@@ -1101,7 +1189,7 @@ function readFile(file) {
         document.getElementById("total-f").innerHTML = new Intl.NumberFormat('en-US', {
             style: 'currency',
             currency: 'USD',
-        }).format(totalGeneral);
+        }).format(totalF);
 
         // document.getElementById("total-credit").innerHTML = "$" + card;
         // document.getElementById("total-t").innerHTML = "$" + deposit;
@@ -1147,8 +1235,11 @@ function readFile(file) {
 
         document.getElementById("error-archivo").innerHTML = "";
         document.getElementById("start").hidden = false;
+
+        // ohMyGawd();
     } catch (error) {
-        initThrowErrorAlert("test", error + " El reporte que deseas usar no cuenta con la estructura adecuada");
+        // lol
+        initThrowErrorAlert("test", "El reporte que deseas usar no cuenta con la estructura adecuada");
     }
 }
 
@@ -1161,13 +1252,20 @@ function fillTable(data, final=0) {
         currency: 'USD',
     });
 
-    data.forEach(item => {
+    data.forEach((item, idx) => {
         console.log("SE VA Y SE CORRE: ", item.total);
+
+        let paymentType = "Efectivo";
+
+        if (item.credito) paymentType = "Tarjeta"
+
+        if (item.transferencia) paymentType = "Transferencia"
 
         const row = dataTable.row
             .add([
                 '',
-                item.folio,
+                item.date,
+                paymentType,
                 USDollar.format(item.total.toFixed(2)),
                 // "$" + item.total,
             ])
@@ -1177,11 +1275,24 @@ function fillTable(data, final=0) {
 
         console.log("ID :", item.folio, row.node());
         row.node().setAttribute("id", item.folio);
+        row.node().setAttribute("data-id", idx);
 
         // Color the credit ticket background
-        if (item.credit || item.trans) {
+        if (item.credito || item.transferencia) {
             row.node().style.backgroundColor = "rgba(14, 116, 144, 0.4)";
+
+            // NOTE: This line prevent the user from unselect the checkbox
+            // row.node().querySelectorAll('td input[type="checkbox"]')[0].style.pointerEvents = "none";
         }
+
+        row.node().querySelectorAll('td input[type="checkbox"]')[0].checked = true;
+        row.node().classList.add('selected');
+
+        const ticketId = row.node().getAttribute('data-id');
+
+        selectTicket(ticketId);
+
+        row.child(format(item.products)).show();
 
         console.log(row, row.node());
         // item.products.map(product => {
@@ -1195,7 +1306,7 @@ function fillTable(data, final=0) {
         //         <td class="px-6 py-4"> $${item.total} </td>
         //     </tr>${productsHTML}`
         // );
-        totalValue += item.total;
+        // totalValue += item.total;
     });
 }
 
@@ -1355,10 +1466,30 @@ document.getElementById("start").addEventListener('click', function(event) {
     document.getElementById("results").hidden = false;
 
     document.getElementById("monto").value = "$0.00";
+
+    dataTable.column(3).footer().innerHTML = 'Total: $0.00';
+    dataTable.column(2).footer().innerHTML = 'Tickets seleccionados: 0';
+
+    document.getElementById("tickets_wrapper").hidden = true;
+    document.getElementById("spinner").hidden = false;
+    setTimeout(() => {
+        document.getElementById("tickets_wrapper").hidden = false;
+        document.getElementById("spinner").style.display = "none";
+        
+        ohMyGawd();
+    }, 500);
 });
 
 document.getElementById("volver").addEventListener('click', function(event) {
-    dataTable.column(2).footer().innerHTML = 'Total:';
+    dataTable.clear();
+
+    document.getElementById("spinner").style.display = "flex";
+
+    ticketsToPrint = [];
+    finalTicketList = [];
+
+    dataTable.column(3).footer().innerHTML = 'Total: $0.00';
+    dataTable.column(2).footer().innerHTML = 'Tickets seleccionados: $0.00';
 
     document.getElementById("tickets").hidden = false;
     document.getElementById("spinner").hidden = true;
@@ -1400,48 +1531,142 @@ document.getElementById("volver").addEventListener('click', function(event) {
     document.getElementById("content").hidden = false;
 });
 
+
+function ohMyGawd() {
+    const table = document.getElementById("tickets");
+
+    // Merging tickets in one final list
+    finalTicketList = finalTicketList.concat(window.creditTickets);
+    finalTicketList = finalTicketList.concat(window.catalog);
+    
+    console.log("FINAL TICKET LIST: ", finalTicketList);
+
+    // Sorting all the tickets by date
+    finalTicketList.sort((a,b) => {
+        console.log("SORTING REAL DATE: ", a.realDate, b.realDate);
+        console.log("-> ", a.realDate.localeCompare(b.realDate));
+
+        // return a.realDate - b.realDate;
+        return a.realDate.localeCompare(b.realDate)
+    });
+
+    fillTable(finalTicketList);
+
+    showPrintButton();
+
+    const checkboxes = table.querySelectorAll('tbody input[type="checkbox"]');
+    const selectAllCheckBox = document.getElementById("select-all");
+
+    selectAllCheckBox.checked = true;
+
+    selectAllCheckBox.addEventListener("change", function() {
+        const row = this.closest('tr');
+
+        if (this.checked) {
+            selectAllTickets();
+        } else {
+            unselectAllTickets();
+        }
+    });
+
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const row = this.closest('tr');
+            const rowDataId = row.getAttribute('data-id');
+
+            if (this.checked) {
+                row.classList.add('selected');
+
+                selectTicket(rowDataId);
+            } else {
+                if (selectAllCheckBox.checked) {
+                    selectAllCheckBox.checked = false;
+                }
+
+                row.classList.remove('selected');
+
+                unselectTicket(rowDataId);
+            }
+        });
+    });
+}
+
+
+function selectAllTickets() {
+    ticketsToPrint = []
+
+    dataTable.rows().every(function(index) {
+        const row = dataTable.row(index);
+        const rowDataId = row.node().getAttribute('data-id');
+
+        console.group("Select All");
+        console.log("Selecting idx: ", index);
+        console.log("Selecting row: ", row);
+        console.groupEnd();
+        
+        row.node().querySelectorAll('td input[type="checkbox"]')[0].checked = true;
+        row.node().classList.add('selected');
+
+        selectTicket(rowDataId);
+    });
+
+}
+
+
+function unselectAllTickets() {
+    ticketsToPrint = []
+
+    dataTable.rows().every(function(index, data) {
+        const row = dataTable.row(index);
+        const rowDataId = row.node().getAttribute('data-id');
+
+        console.group("Unelect All");
+        console.log("Selecting idx: ", index);
+        console.log("Selecting row: ", row);
+        console.log("Selecting data: ", data);
+        console.groupEnd();
+        
+        row.node().querySelectorAll('td input[type="checkbox"]')[0].checked = false;
+        row.node().classList.remove('selected');
+
+        unselectTicket(rowDataId);
+    });
+
+}
+
 const form = document.getElementById('form');
 form.addEventListener("submit", (event) => {
-    document.getElementById("tickets").hidden = true;
-    document.getElementById("spinner").hidden = false;
-
-    canUseCashTickets = false;
-    document.getElementById("errors").innerHTML = "";
-
+    // canUseCashTickets = false;
     event.preventDefault();
 
-    finalTicketList = [];
-    dataTable.clear().draw();
+    document.getElementById("errors").innerHTML = "";
 
-    var table = document.getElementById("tickets");
-    var body = table.getElementsByTagName("tbody")[0];
-
-    body.innerHTML = "";
-
-    window.totalValue = 0;
-
-    const form = event.target;
-
-    window.monto = form.elements["monto"].value;
-
-    window.first = form.elements["inicial"].value;
-    window.myFolio = parseFloat(first);
-
-    monto = Number(monto.replace(/[^0-9.-]+/g,""));
-
-    console.log("Se iniciara el flujo con:");
-    console.log("Monto a cubrir -> ", monto);
-    console.log("Ticket inicial -> ", first);
-
-    monto =  Math.round(monto);
-
-    window.total = monto;
-
-    if (monto > totalGeneral) {
-        throwErrorAlert("Lo sentimos", "El monto a cubrir no puede ser mayor a el monto total del reporte");
+    if (ticketsToPrint.length === 0) {
+        throwErrorAlert("", "No se ha seleccionado ningún ticket");
 
         return
     }
+
+    window.first = form.elements["inicial"].value;
+    window.myFolio = parseFloat(first);
+    
+    // Sorting all the tickets by date
+    ticketsToPrint.sort((a,b) => {
+        console.log("SORTING REAL DATE: ", a.realDate, b.realDate);
+        console.log("-> ", a.realDate.localeCompare(b.realDate));
+
+        // return a.realDate - b.realDate;
+        return a.realDate.localeCompare(b.realDate)
+    });
+
+    ticketsToPrint.forEach(ticket => {
+        ticket.folio = myFolio
+        myFolio++;
+    });
+
+    printTickets();
+
+    return
 
     let result = [];
     if (creditTickets.length > 0) {

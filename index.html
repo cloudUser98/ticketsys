@@ -86,9 +86,9 @@
                         <form id="form">
                             <div class="flex items-end gap-4">
 
-                                <div class="flex flex-col">
-                                    <label for="country">Monto a Cubrir</label>
-                                    <input id="monto" name="monto" type="text" class="border bg-gray-50 transition-all h-10 px-4" placeholder="" required />
+                                <div hidden class="flex flex-col">
+                                    <label hidden for="country">Monto a Cubrir</label>
+                                    <input hidden id="monto" name="monto" type="text" class="border bg-gray-50 transition-all h-10 px-4" placeholder="" required />
                                 </div>
 
                                 <div class="flex flex-col">
@@ -102,7 +102,13 @@
                                 </div> -->
 
                                 <div class="flex-2">
-                                    <button type="submit" class="min-w-52 appearance-none bg-indigo-900 text-white border border-gray-200 rounded py-2 px-6 leading-tight focus:outline-none focus:border-gray-500" id="grid-city">Generar tickets</button>
+                                    <!-- <button type="submit" class="min-w-52 appearance-none bg-indigo-900 text-white border border-gray-200 rounded py-2 px-6 leading-tight focus:outline-none focus:border-gray-500" id="grid-city">Generar tickets</button> -->
+                                    <button id="print-button" class="flex items-center appearance-none bg-indigo-900 text-white border border-gray-200 rounded py-2 px-6 leading-tight focus:outline-none focus:border-gray-500" id="grid-city">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-printer-fill me-2" viewBox="0 0 16 16">
+                                            <path d="M5 1a2 2 0 0 0-2 2v1h10V3a2 2 0 0 0-2-2zm6 8H5a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1"/>
+                                            <path d="M0 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-1v-2a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2H2a2 2 0 0 1-2-2zm2.5 1a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1"/>
+                                        </svg>
+                                        Imprimir Tickets</button>
                                 </div>
 
                             </div>
@@ -112,7 +118,7 @@
 
                     <div id="errors"></div>
 
-                    <div id="spinner" hidden>
+                    <div id="spinner" style="display:flex;flex-direction:column;align-items:center;" hidden>
                         <div class="spinner"></div>
                         <div class="loading-text">Cargando...</div>
                     </div>
@@ -120,9 +126,12 @@
                     <table id="tickets" class="display " style="width:100%">
                         <thead>
                             <tr>
-                                <th></th>
+                                <th><input id="select-all" type="checkbox" class="select-row"></th>
                                 <th>
-                                    Folio
+                                    Fecha
+                                </th>
+                                <th>
+                                    Pago
                                 </th>
                                 <th>
                                     Total
@@ -133,6 +142,7 @@
                             <tr>
                                 <th></th>
                                 <th></th>
+                                <th style="text-align:right">Tickets:</th>
                                 <th style="text-align:right">Total:</th>
                             </tr>
                         </tfoot>
