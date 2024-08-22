@@ -297,17 +297,18 @@ function ticket(folio, date, time, total, efectivo="0", credito="0", transferenc
     <div class="ticket">
         <div class="ticket-header">
             <div style="text-align:center;">
-                <img src="/logo.png" style="width:190px;height:auto;">
+                <img src="/logo.png" style="width:200px;height:auto;">
             </div>
         </div>
         <div class="ticket-body">
             <br>
-            <div class="font text-center">CHATTO</div>
-            <div class="font text-center">OIAV960308NH1</div>
-            <div class="font text-center">PROGRESO 39</div>
-            <div class="font text-center">COMALA,COLIMA</div>
-            <div class="font text-center">28450</div>
-            <div class="font text-center font">chattocomala@gmail.com</div>
+            <br>
+            <div class="font text-center">VOV BOUTIQUE</div>
+            <div class="font text-center">JUAA530421B18</div>
+            <div class="font text-center">FILOMENO MEDINA 11</div>
+            <div class="font text-center">COLIMA,COLIMA</div>
+            <div class="font text-center">28000</div>
+            <div class="font text-center font">vovboutique89@gmail.com</div>
             <br>
             <div>--------------------------</div>
             <div class="font">No. TICKET: ${folio}</div>
