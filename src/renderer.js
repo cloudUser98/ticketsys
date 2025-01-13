@@ -302,12 +302,12 @@ function ticket(folio, date, time, total, efectivo="0", credito="0", transferenc
         </div>
         <div class="ticket-body">
             <br>
-            <div class="font text-center">CHATTO</div>
+            <div class="font text-center">CHATTO BARRA</div>
             <div class="font text-center">OIAV960308NH1</div>
-            <div class="font text-center">PROGRESO 39</div>
-            <div class="font text-center">COMALA,COLIMA</div>
-            <div class="font text-center">28450</div>
-            <div class="font text-center font">chattocomala@gmail.com</div>
+            <div class="font text-center">LOPEZ DE LAGAZPI</div>
+            <div class="font text-center">BARRA DE NAVIDAD,JALISCO</div>
+            <div class="font text-center">48987</div>
+            <div class="font text-center font">CHATTOCOMALA@GMAIL.COM</div>
             <br>
             <div>--------------------------</div>
             <div class="font">No. TICKET: ${folio}</div>
